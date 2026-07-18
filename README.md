@@ -2,7 +2,7 @@
 
 OpsGuard AI is a multi-tenant, AI-assisted operational workflow platform for controlled request intake, assessment, approval, integration execution, reconciliation, and audit.
 
-This repository currently contains the Week 1 foundations through **Day 3: Local Infrastructure**. It intentionally has no application behavior, database schema, provider integration, or domain implementation.
+This repository currently contains the Week 1 foundations through **Day 4: Initial Data Model and Migrations**. It intentionally has no application behavior, provider integration, or domain implementation.
 
 ## Architectural guardrails
 
@@ -19,6 +19,8 @@ The accepted baselines are documented in:
 - [Domain boundaries](docs/architecture/domain-boundaries.md)
 - [ADR-0001: Model responsibility boundary](docs/adr/0001-model-responsibility-boundary.md)
 - [Initial threat model](docs/security/initial-threat-model.md)
+- [Initial tenant-aware data model](docs/database/initial-data-model.md)
+- [Database migrations and recovery](docs/database/migrations.md)
 
 ## Workspace structure
 
@@ -76,3 +78,22 @@ pnpm infra:down
 ```
 
 See the [local environment guide](docs/development/local-environment.md) for endpoints, credentials, health checks, troubleshooting, and the explicitly guarded state-reset command.
+
+## Database foundation
+
+The application PostgreSQL schema contains only the Day 4 tenant, user, membership, request,
+request-history, AI-run metadata, prompt-version metadata, model-configuration metadata, and audit
+tables. Composite foreign keys enforce same-tenant relationships at the database boundary. Row-level
+security, repositories, domain state transitions, authentication, and application use cases remain
+deferred.
+
+```bash
+pnpm db:generate
+pnpm db:check
+pnpm db:migrate
+pnpm db:test
+```
+
+`pnpm db:test` creates and removes a guarded, randomly named isolated test database; it never resets
+the normal application database. See the [migration and recovery guide](docs/database/migrations.md)
+before changing or applying migrations.

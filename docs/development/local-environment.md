@@ -29,7 +29,7 @@ The usernames, passwords, database names, and published ports come from `.env`. 
 
 | Service             | Purpose                                                              | Host endpoint                                | Internal endpoint                          | Health check              |
 | ------------------- | -------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------ | ------------------------- |
-| `app-postgres`      | Future OpsGuard application persistence; pgvector binaries available | `127.0.0.1:5432`                             | `app-postgres:5432`                        | `pg_isready`              |
+| `app-postgres`      | OpsGuard application persistence; pgvector binaries available        | `127.0.0.1:5432`                             | `app-postgres:5432`                        | `pg_isready`              |
 | `temporal-postgres` | Isolated Temporal persistence                                        | `127.0.0.1:5433`                             | `temporal-postgres:5432`                   | `pg_isready`              |
 | `redis`             | Future local cache/coordination substrate; no keys or queues created | `127.0.0.1:6379`                             | `redis:6379`                               | Authenticated `PING`      |
 | `minio`             | S3-compatible local object storage                                   | `http://127.0.0.1:9000`                      | `http://minio:9000`                        | `/minio/health/live`      |
@@ -146,6 +146,15 @@ PostgreSQL and MinIO initialize credentials only when their data volumes are fir
 
 Use Docker Desktop with the WSL 2 backend and run commands consistently from PowerShell or a WSL shell. Use `Copy-Item` instead of `cp` in PowerShell. If a loopback port appears unavailable, check Windows services, WSL port forwarding, VPN software, and endpoint-security rules. The bind-mounted collector YAML must remain inside a Docker Desktop shared filesystem.
 
-## Intentionally deferred after Day 3
+## Database migrations after Day 4
 
-This environment creates no application tables, migrations, pgvector extension or indexes, Redis keys or queues, MinIO buckets, Temporal workflows or workers, API routes, UI, authentication, AI provider integration, document ingestion, production secrets, Terraform, Kubernetes, or deployment configuration. Those belong to later roadmap slices. The deterministic application boundary and the rule that AI output is an untrusted proposal remain unchanged.
+The Compose environment still bootstraps no application schema automatically. Day 4 adds explicit,
+checked-in Drizzle migrations for the application database; run them and the isolated database tests
+through the commands documented in the [migration and recovery guide](../database/migrations.md).
+Temporal persistence remains separate and must never receive OpsGuard application migrations.
+
+The environment still creates no pgvector extension or indexes, Redis keys or queues, MinIO buckets,
+Temporal workflows or workers, API routes, UI, authentication, AI provider integration, document
+ingestion, production secrets, Terraform, Kubernetes, or deployment configuration. Those belong to
+later roadmap slices. The deterministic application boundary and the rule that AI output is an
+untrusted proposal remain unchanged.
