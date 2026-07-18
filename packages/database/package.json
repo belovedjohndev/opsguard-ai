@@ -16,9 +16,24 @@
     }
   },
   "scripts": {
-    "lint": "eslint src --max-warnings=0",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config ../../vitest.config.ts --root .",
-    "build": "tsc -p tsconfig.json"
+    "lint": "eslint src drizzle.config.ts --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json && tsc -p tsconfig.tooling.json",
+    "test": "vitest run --config ../../vitest.config.ts --root . --exclude src/database.integration.test.ts",
+    "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate --name=initial_tenant_model",
+    "db:migrate": "drizzle-kit migrate",
+    "db:check": "drizzle-kit check",
+    "db:test": "vitest run --config ../../vitest.config.ts --root . src/database.integration.test.ts"
+  },
+  "dependencies": {
+    "dotenv": "17.4.2",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "@types/pg": "8.20.0",
+    "drizzle-kit": "0.31.10",
+    "tsx": "4.23.1"
   }
 }
