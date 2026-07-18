@@ -17,6 +17,10 @@
     "@opsguard/auth": "workspace:*",
     "@opsguard/config": "workspace:*",
     "@opsguard/contracts": "workspace:*",
-    "@opsguard/observability": "workspace:*"
+    "@opsguard/observability": "workspace:*",
+    "fastify": "^5.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0"
   }
 }
