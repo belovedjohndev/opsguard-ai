@@ -1,0 +1,171 @@
+name: opsguard-ai
+
+services:
+  app-postgres:
+    image: pgvector/pgvector:0.8.2-pg17-bookworm
+    environment:
+      POSTGRES_USER: ${APP_POSTGRES_USER:-opsguard_app}
+      POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-opsguard_app_local_2026}
+      POSTGRES_DB: ${APP_POSTGRES_DATABASE:-opsguard_app_dev}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    ports:
+      - 127.0.0.1:${APP_POSTGRES_PORT:-5432}:5432
+    volumes:
+      - app-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - local
+    restart: unless-stopped
+
+  temporal-postgres:
+    image: postgres:17.10-alpine3.24
+    environment:
+      POSTGRES_USER: ${TEMPORAL_POSTGRES_USER:-opsguard_temporal}
+      POSTGRES_PASSWORD: ${TEMPORAL_POSTGRES_PASSWORD:-opsguard_temporal_local_2026}
+      POSTGRES_DB: ${TEMPORAL_POSTGRES_ADMIN_DATABASE:-opsguard_temporal_admin}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    ports:
+      - 127.0.0.1:${TEMPORAL_POSTGRES_PORT:-5433}:5432
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - local
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.8.0-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-opsguard_redis_local_2026}
+    entrypoint:
+      - sh
+      - -ec
+      - exec redis-server --appendonly yes --appendfsync everysec --requirepass "$${REDIS_PASSWORD}"
+    ports:
+      - 127.0.0.1:${REDIS_PORT:-6379}:6379
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli --no-auth-warning ping | grep -q PONG',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    networks:
+      - local
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-opsguard_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-opsguard_minio_local_2026}
+    ports:
+      - 127.0.0.1:${MINIO_API_PORT:-9000}:9000
+      - 127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - local
+    restart: unless-stopped
+
+  temporal:
+    image: temporalio/auto-setup:1.29.6
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: ${TEMPORAL_POSTGRES_USER:-opsguard_temporal}
+      POSTGRES_PWD: ${TEMPORAL_POSTGRES_PASSWORD:-opsguard_temporal_local_2026}
+      POSTGRES_SEEDS: temporal-postgres
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${TEMPORAL_GRPC_PORT:-7233}:7233
+    healthcheck:
+      test: ['CMD', 'tctl', '--address', 'temporal:7233', 'cluster', 'health']
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    networks:
+      - local
+    restart: unless-stopped
+
+  temporal-ui:
+    image: temporalio/ui:2.34.0
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+    depends_on:
+      temporal:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${TEMPORAL_UI_PORT:-8233}:8080
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - local
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:2.18.0
+    ports:
+      - 127.0.0.1:${JAEGER_UI_PORT:-16686}:16686
+    networks:
+      - local
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    command: ['--config=/etc/otelcol-contrib/config.yaml']
+    volumes:
+      - ./infrastructure/telemetry/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - jaeger
+    ports:
+      - 127.0.0.1:${OTEL_COLLECTOR_GRPC_PORT:-4317}:4317
+      - 127.0.0.1:${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318
+      - 127.0.0.1:${OTEL_COLLECTOR_HEALTH_PORT:-13133}:13133
+    networks:
+      - local
+    restart: unless-stopped
+
+volumes:
+  app-postgres-data:
+    name: opsguard-ai-app-postgres-data
+  temporal-postgres-data:
+    name: opsguard-ai-temporal-postgres-data
+  redis-data:
+    name: opsguard-ai-redis-data
+  minio-data:
+    name: opsguard-ai-minio-data
+
+networks:
+  local:
+    name: opsguard-ai-local
+    driver: bridge
