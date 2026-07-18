@@ -101,7 +101,7 @@ Open the MinIO console at `http://127.0.0.1:9001`, Temporal UI at `http://127.0.
 To send a synthetic trace without adding application instrumentation, run the pinned OpenTelemetry generator on the project network:
 
 ```bash
-docker run --rm --network opsguard-ai-local ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:0.153.0 traces --otlp-endpoint otel-collector:4317 --otlp-insecure --traces 1 --service opsguard-infra-check
+docker run --rm --network opsguard-ai-local ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.153.0 traces --otlp-endpoint otel-collector:4317 --otlp-insecure --traces 1 --service opsguard-infra-check
 curl --fail http://127.0.0.1:16686/api/services
 ```
 
