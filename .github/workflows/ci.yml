@@ -16,6 +16,26 @@ jobs:
     name: Quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      APP_POSTGRES_PORT: 5432
+      APP_POSTGRES_USER: opsguard_ci
+      APP_POSTGRES_PASSWORD: opsguard_ci_local_only
+      APP_POSTGRES_DATABASE: opsguard_ci_admin
+      TEMPORAL_POSTGRES_ADMIN_DATABASE: opsguard_temporal_admin
+    services:
+      app-postgres:
+        image: pgvector/pgvector:0.8.2-pg17-bookworm
+        env:
+          POSTGRES_USER: opsguard_ci
+          POSTGRES_PASSWORD: opsguard_ci_local_only
+          POSTGRES_DB: opsguard_ci_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opsguard_ci -d opsguard_ci_admin"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
     steps:
       - name: Check out repository
@@ -36,6 +56,12 @@ jobs:
 
       - name: Check formatting
         run: pnpm format:check
+
+      - name: Check database migrations
+        run: pnpm db:check
+
+      - name: Verify database migrations and tenant boundaries
+        run: pnpm db:test
 
       - name: Lint
         run: pnpm lint
