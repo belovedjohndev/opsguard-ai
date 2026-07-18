@@ -99,7 +99,11 @@ importers:
         specifier: workspace:*
         version: link:../domain
 
-  packages/auth: {}
+  packages/auth:
+    dependencies:
+      '@opsguard/domain':
+        specifier: workspace:*
+        version: link:../domain
 
   packages/config: {}
 

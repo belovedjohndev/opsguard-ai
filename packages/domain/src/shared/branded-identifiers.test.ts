@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { parseRequestId, type RequestId } from '../request/request-id.js';
 import { parseTenantMembershipId } from '../tenant/membership-id.js';
 import { parseTenantId, type TenantId } from '../tenant/tenant-id.js';
+import { parseUserId, type UserId } from '../tenant/user-id.js';
 
 const validUuid = '018f47d2-68df-7a8b-9c01-23456789abcd';
 
@@ -11,6 +12,7 @@ describe('branded UUID identifiers', () => {
     ['TenantId', parseTenantId],
     ['TenantMembershipId', parseTenantMembershipId],
     ['RequestId', parseRequestId],
+    ['UserId', parseUserId],
   ] as const)('accepts a valid %s', (_identifier, parse) => {
     expect(parse(validUuid)).toEqual({ ok: true, value: validUuid });
   });
@@ -32,5 +34,6 @@ describe('branded UUID identifiers', () => {
 
   it('keeps identifier brands nominally distinct', () => {
     expectTypeOf<TenantId>().not.toEqualTypeOf<RequestId>();
+    expectTypeOf<UserId>().not.toEqualTypeOf<TenantId>();
   });
 });

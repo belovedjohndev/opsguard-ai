@@ -6,7 +6,7 @@ export type Brand<Value, Name extends string> = Value & {
   readonly [brand]: Name;
 };
 
-export type IdentifierKind = 'RequestId' | 'TenantId' | 'TenantMembershipId';
+export type IdentifierKind = 'RequestId' | 'TenantId' | 'TenantMembershipId' | 'UserId';
 
 export type InvalidIdentifierError<Kind extends IdentifierKind = IdentifierKind> = Readonly<{
   code: 'INVALID_IDENTIFIER';
