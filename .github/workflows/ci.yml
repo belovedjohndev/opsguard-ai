@@ -63,6 +63,9 @@ jobs:
       - name: Verify database migrations and tenant boundaries
         run: pnpm db:test
 
+      - name: Verify tenant-scoped request API integration
+        run: pnpm api:test:integration
+
       - name: Lint
         run: pnpm lint
 
