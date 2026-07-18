@@ -21,7 +21,10 @@
     "infra:down": "node scripts/local-infrastructure.mjs down",
     "infra:ps": "node scripts/local-infrastructure.mjs ps",
     "infra:logs": "node scripts/local-infrastructure.mjs logs",
-    "infra:reset": "node scripts/local-infrastructure.mjs reset"
+    "infra:reset": "node scripts/local-infrastructure.mjs reset",
+    "db:generate": "pnpm --filter @opsguard/database db:generate",
+    "db:migrate": "pnpm --filter @opsguard/database db:migrate",
+    "db:check": "pnpm --filter @opsguard/database db:check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

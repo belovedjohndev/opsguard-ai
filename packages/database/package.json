@@ -16,10 +16,13 @@
     }
   },
   "scripts": {
-    "lint": "eslint src --max-warnings=0",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src drizzle.config.ts --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tooling.json",
     "test": "vitest run --config ../../vitest.config.ts --root .",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate --name=initial_tenant_model",
+    "db:migrate": "drizzle-kit migrate",
+    "db:check": "drizzle-kit check"
   },
   "dependencies": {
     "dotenv": "17.4.2",
