@@ -44,6 +44,9 @@ importers:
       '@opsguard/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@opsguard/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@opsguard/observability':
         specifier: workspace:*
         version: link:../../packages/observability

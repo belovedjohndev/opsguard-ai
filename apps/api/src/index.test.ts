@@ -5,7 +5,19 @@ import { buildApiApp } from './index.js';
 describe('buildApiApp', () => {
   it('serves health with a server-generated request ID', async () => {
     const requestId = '9d658c18-88cc-4588-b6c7-e3ac335c581b';
-    const app = buildApiApp({ generateRequestId: () => requestId });
+    const app = buildApiApp({
+      activeMembershipResolver: {
+        resolveActiveMembership: async () => {
+          throw new Error('The health route must not resolve membership.');
+        },
+      },
+      createRequest: {
+        execute: async () => {
+          throw new Error('The health route must not create a request.');
+        },
+      },
+      generateRequestId: () => requestId,
+    });
 
     const response = await app.inject({
       headers: { 'x-request-id': 'client-controlled-value' },

@@ -17,6 +17,7 @@
     "@opsguard/auth": "workspace:*",
     "@opsguard/config": "workspace:*",
     "@opsguard/contracts": "workspace:*",
+    "@opsguard/domain": "workspace:*",
     "@opsguard/observability": "workspace:*",
     "fastify": "^5.10.0"
   },

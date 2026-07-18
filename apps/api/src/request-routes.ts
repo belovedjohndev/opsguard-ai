@@ -1,0 +1,81 @@
+import type { CreateRequest, CreateRequestError } from '@opsguard/application';
+import { requestSourceTypes } from '@opsguard/domain';
+import type { FastifyInstance, FastifyReply, preHandlerAsyncHookHandler } from 'fastify';
+
+import { sendApiError } from './http-errors.js';
+import { requireTenantContext } from './request-context.js';
+
+type CreateRequestBody = Readonly<{
+  sourceReference: string;
+  sourceType: string;
+}>;
+
+export type CreateRequestExecutor = Pick<CreateRequest, 'execute'>;
+
+const createRequestBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['sourceType', 'sourceReference'],
+  properties: {
+    sourceReference: { type: 'string', minLength: 1, maxLength: 255 },
+    sourceType: { type: 'string', enum: requestSourceTypes },
+  },
+} as const;
+
+const sendCreateRequestError = (
+  reply: FastifyReply,
+  error: CreateRequestError,
+  requestId: string,
+): FastifyReply => {
+  switch (error.code) {
+    case 'INVALID_CREATE_REQUEST_INPUT':
+      return sendApiError(reply, 400, 'INVALID_REQUEST', requestId);
+    case 'REQUEST_ALREADY_EXISTS':
+      return sendApiError(reply, 409, 'REQUEST_CONFLICT', requestId);
+    case 'REQUEST_PERSISTENCE_UNAVAILABLE':
+      return sendApiError(reply, 503, 'SERVICE_UNAVAILABLE', requestId);
+    case 'UNEXPECTED_REQUEST_REPOSITORY_FAILURE':
+      return sendApiError(reply, 500, 'INTERNAL_ERROR', requestId);
+  }
+};
+
+export const registerRequestRoutes = (
+  app: FastifyInstance,
+  createRequest: CreateRequestExecutor,
+  authenticateTenantContext: preHandlerAsyncHookHandler,
+): void => {
+  app.post<{ Body: CreateRequestBody }>(
+    '/v1/requests',
+    {
+      preHandler: authenticateTenantContext,
+      schema: { body: createRequestBodySchema },
+    },
+    async (request, reply) => {
+      const context = requireTenantContext(request);
+      const result = await createRequest.execute({
+        actorMembershipId: context.membershipId,
+        sourceReference: request.body.sourceReference,
+        sourceType: request.body.sourceType,
+        tenantId: context.tenantId,
+      });
+
+      if (!result.ok) {
+        if (result.error.code === 'UNEXPECTED_REQUEST_REPOSITORY_FAILURE') {
+          request.log.error(
+            { failureCategory: result.error.code, requestId: request.id },
+            'Request creation failed',
+          );
+        }
+
+        return sendCreateRequestError(reply, result.error, request.id);
+      }
+
+      return reply.code(201).send({
+        createdAt: result.value.createdAt.toISOString(),
+        requestId: result.value.requestId,
+        status: result.value.status,
+        tenantId: result.value.tenantId,
+      });
+    },
+  );
+};
