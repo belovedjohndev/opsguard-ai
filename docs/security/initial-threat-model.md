@@ -1,12 +1,15 @@
 # OpsGuard AI Initial Threat Model
 
 **Roadmap slice:** Week 1, Day 1 — Product Scope and Architectural Boundaries  
-**Status:** Initial baseline  
+**Status:** Superseded by the Day 7 authoritative baseline
 **Date:** 2026-07-17
 
 ## Purpose and limitation
 
-This document identifies the security assumptions and highest-priority threats implied by the Day 1 product and architecture decisions. It is intentionally a baseline, not the completed Day 7 threat-model deliverable. Day 7 must add a detailed data-flow diagram, systematic trust-boundary analysis, abuse cases, control ownership, verification evidence, and a prioritized security backlog.
+This document preserves the initial security analysis produced on Day 1. It is no longer
+authoritative. The accepted [Day 7 Threat-Model Baseline](threat-model.md) supersedes its identifiers,
+ratings, boundary inventory, control status, evidence, and backlog. When the two differ, the Day 7
+baseline governs.
 
 ## Security objectives
 
@@ -109,4 +112,3 @@ The authoritative trust-boundary definitions are in [System Context](../architec
 - Require a reconciliation design before adding any write-capable integration.
 - Do not log raw prompts or document content by default.
 - Treat every new input channel, model capability, tool, and side effect as a threat-model change.
-

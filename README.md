@@ -2,7 +2,9 @@
 
 OpsGuard AI is a multi-tenant, AI-assisted operational workflow platform for controlled request intake, assessment, approval, integration execution, reconciliation, and audit.
 
-This repository currently contains the Week 1 foundations through **Day 4: Initial Data Model and Migrations**. It intentionally has no application behavior, provider integration, or domain implementation.
+This repository contains the Week 1 foundations through **Day 6: Fastify API and Tenant Context**.
+It includes deterministic request creation and tenant-aware PostgreSQL persistence, but no model
+provider, workflow, webhook, tool, document, retrieval, or production-authentication integration.
 
 ## Architectural guardrails
 
@@ -18,7 +20,7 @@ The accepted baselines are documented in:
 - [System context](docs/architecture/system-context.md)
 - [Domain boundaries](docs/architecture/domain-boundaries.md)
 - [ADR-0001: Model responsibility boundary](docs/adr/0001-model-responsibility-boundary.md)
-- [Initial threat model](docs/security/initial-threat-model.md)
+- [Authoritative threat-model baseline](docs/security/threat-model.md)
 - [Initial tenant-aware data model](docs/database/initial-data-model.md)
 - [Database migrations and recovery](docs/database/migrations.md)
 
@@ -81,10 +83,11 @@ See the [local environment guide](docs/development/local-environment.md) for end
 
 ## Database foundation
 
-The application PostgreSQL schema contains only the Day 4 tenant, user, membership, request,
+The application PostgreSQL schema contains the Day 4 tenant, user, membership, request,
 request-history, AI-run metadata, prompt-version metadata, model-configuration metadata, and audit
-tables. Composite foreign keys enforce same-tenant relationships at the database boundary. Row-level
-security, repositories, domain state transitions, authentication, and application use cases remain
+tables. Composite foreign keys enforce same-tenant relationships at the database boundary. Day 6
+adds active-membership resolution and atomic request, initial-history, and creation-audit persistence.
+Row-level security, production authentication, broader request operations, and AI behavior remain
 deferred.
 
 ```bash
