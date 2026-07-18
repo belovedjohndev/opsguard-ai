@@ -111,6 +111,15 @@ importers:
 
   packages/database:
     dependencies:
+      '@opsguard/application':
+        specifier: workspace:*
+        version: link:../application
+      '@opsguard/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@opsguard/domain':
+        specifier: workspace:*
+        version: link:../domain
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
