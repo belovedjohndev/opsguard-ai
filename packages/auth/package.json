@@ -20,5 +20,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config ../../vitest.config.ts --root .",
     "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opsguard/domain": "workspace:*"
   }
 }

@@ -25,7 +25,8 @@
     "db:generate": "pnpm --filter @opsguard/database db:generate",
     "db:migrate": "pnpm --filter @opsguard/database db:migrate",
     "db:check": "pnpm --filter @opsguard/database db:check",
-    "db:test": "pnpm --filter @opsguard/database db:test"
+    "db:test": "pnpm --filter @opsguard/database... build && pnpm --filter @opsguard/database db:test",
+    "api:test:integration": "pnpm --filter @opsguard/api... build && pnpm --filter @opsguard/api test:integration"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

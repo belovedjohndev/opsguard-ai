@@ -1,5 +1,6 @@
 export {
   type CreateRequestPersistence,
+  type RequestCreationAuditEvent,
   type RequestRepository,
   type RequestRepositoryError,
 } from './ports/request-repository.js';
