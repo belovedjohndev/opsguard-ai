@@ -388,6 +388,12 @@ Authenticated tenant budgets, request/document/context caps, time/token/tool/ret
 high-cardinality controls, provider kill switches, and cost monitoring are release gates for
 expensive endpoints (T-005, T-021).
 
+## Abuse-case and control backlog
+
+The companion [abuse-case and security-control backlog](abuse-case-backlog.md) assigns deterministic
+expected results, future acceptance tests, priorities, and owning roadmap tasks. A `Planned` backlog
+item is not evidence that a runtime control exists.
+
 ## Current-control versus planned-control matrix
 
 | Control area | Status through Day 6 | Evidence | Gap / planned owner |
