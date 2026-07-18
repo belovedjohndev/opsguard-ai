@@ -20,5 +20,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config ../../vitest.config.ts --root .",
     "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "dotenv": "17.4.2",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "@types/pg": "8.20.0",
+    "drizzle-kit": "0.31.10",
+    "tsx": "4.23.1"
   }
 }
