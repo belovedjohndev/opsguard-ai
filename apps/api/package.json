@@ -1,0 +1,22 @@
+{
+  "name": "@opsguard/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config ../../vitest.config.ts --root .",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opsguard/application": "workspace:*",
+    "@opsguard/auth": "workspace:*",
+    "@opsguard/config": "workspace:*",
+    "@opsguard/contracts": "workspace:*",
+    "@opsguard/observability": "workspace:*"
+  }
+}
