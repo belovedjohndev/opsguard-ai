@@ -1,0 +1,35 @@
+{
+  "name": "opsguard-ai",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Controlled AI-assisted intake, decision, and workflow execution for operational teams.",
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.13.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "lint": "eslint scripts --max-warnings=0 && turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "build": "turbo run build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:config": "node scripts/local-infrastructure.mjs config",
+    "infra:up": "node scripts/local-infrastructure.mjs up",
+    "infra:down": "node scripts/local-infrastructure.mjs down",
+    "infra:ps": "node scripts/local-infrastructure.mjs ps",
+    "infra:logs": "node scripts/local-infrastructure.mjs logs",
+    "infra:reset": "node scripts/local-infrastructure.mjs reset"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.7.0",
+    "prettier": "3.9.5",
+    "turbo": "2.10.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.64.0",
+    "vitest": "4.1.10"
+  }
+}
