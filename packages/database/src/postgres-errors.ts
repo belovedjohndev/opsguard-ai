@@ -8,33 +8,65 @@ type PostgreSqlError = Readonly<{
 
 const unavailableCodes = new Set(['53300', '53400', '57P01', '57P02', '57P03']);
 
-const isPostgreSqlError = (error: unknown): error is PostgreSqlError => {
+const asPostgreSqlError = (error: unknown): PostgreSqlError | null => {
   if (typeof error !== 'object' || error === null) {
-    return false;
+    return null;
   }
 
-  return typeof (error as Record<string, unknown>)['code'] === 'string';
+  const record = error as Record<string, unknown>;
+  if (typeof record['code'] === 'string') {
+    return {
+      code: record['code'],
+      ...(typeof record['constraint'] === 'string' ? { constraint: record['constraint'] } : {}),
+    };
+  }
+
+  return null;
+};
+
+const findPostgreSqlError = (error: unknown): PostgreSqlError | null => {
+  let candidate = error;
+
+  for (let depth = 0; depth < 4; depth += 1) {
+    const postgreSqlError = asPostgreSqlError(candidate);
+    if (postgreSqlError !== null) {
+      return postgreSqlError;
+    }
+
+    if (typeof candidate !== 'object' || candidate === null || !('cause' in candidate)) {
+      return null;
+    }
+
+    candidate = candidate.cause;
+  }
+
+  return null;
 };
 
 const isUnavailable = (error: PostgreSqlError): boolean =>
   error.code.startsWith('08') || unavailableCodes.has(error.code);
 
 export const mapRequestRepositoryError = (error: unknown): RequestRepositoryError => {
-  if (!isPostgreSqlError(error)) {
+  const postgreSqlError = findPostgreSqlError(error);
+  if (postgreSqlError === null) {
     return { code: 'UNEXPECTED' };
   }
 
-  if (error.code === '23505' && error.constraint === 'requests_tenant_id_source_key') {
+  if (
+    postgreSqlError.code === '23505' &&
+    postgreSqlError.constraint === 'requests_tenant_id_source_key'
+  ) {
     return { code: 'CONFLICT' };
   }
 
-  return isUnavailable(error) ? { code: 'UNAVAILABLE' } : { code: 'UNEXPECTED' };
+  return isUnavailable(postgreSqlError) ? { code: 'UNAVAILABLE' } : { code: 'UNEXPECTED' };
 };
 
 export const mapActiveMembershipResolverError = (error: unknown): ActiveMembershipResolverError => {
-  if (!isPostgreSqlError(error)) {
+  const postgreSqlError = findPostgreSqlError(error);
+  if (postgreSqlError === null) {
     return { code: 'UNEXPECTED' };
   }
 
-  return isUnavailable(error) ? { code: 'UNAVAILABLE' } : { code: 'UNEXPECTED' };
+  return isUnavailable(postgreSqlError) ? { code: 'UNAVAILABLE' } : { code: 'UNEXPECTED' };
 };
