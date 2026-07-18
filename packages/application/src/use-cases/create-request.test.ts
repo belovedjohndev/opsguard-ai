@@ -72,6 +72,18 @@ describe('CreateRequest', () => {
       changedAt: now,
       changedByMembershipId: actorMembershipId,
     });
+    expect(repository.calls[0]?.auditEvent).toEqual({
+      tenantId,
+      actorMembershipId,
+      eventType: 'request.created',
+      entityType: 'request',
+      entityId: requestId,
+      occurredAt: now,
+      metadata: {
+        status: 'received',
+        sourceType: 'form',
+      },
+    });
   });
 
   it('uses deterministic request-ID and clock dependencies', async () => {

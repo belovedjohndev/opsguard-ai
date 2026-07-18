@@ -1,8 +1,30 @@
-import type { InitialRequestStatus, Request, Result } from '@opsguard/domain';
+import type {
+  InitialRequestStatus,
+  Request,
+  RequestId,
+  RequestSourceType,
+  Result,
+  TenantId,
+  TenantMembershipId,
+} from '@opsguard/domain';
+
+export type RequestCreationAuditEvent = Readonly<{
+  tenantId: TenantId;
+  actorMembershipId: TenantMembershipId;
+  eventType: 'request.created';
+  entityType: 'request';
+  entityId: RequestId;
+  occurredAt: Date;
+  metadata: Readonly<{
+    status: 'received';
+    sourceType: RequestSourceType;
+  }>;
+}>;
 
 export type CreateRequestPersistence = Readonly<{
   request: Request;
   initialStatus: InitialRequestStatus;
+  auditEvent: RequestCreationAuditEvent;
 }>;
 
 export type RequestRepositoryError =
@@ -12,8 +34,8 @@ export type RequestRepositoryError =
 
 export interface RequestRepository {
   /**
-   * Persists the request and its initial status-history row in one transaction.
-   * Implementations must commit both records or neither record.
+   * Persists the request, initial status-history row, and creation audit event in one transaction.
+   * Implementations must commit all three records or none of them.
    */
   createRequest(input: CreateRequestPersistence): Promise<Result<void, RequestRepositoryError>>;
 }

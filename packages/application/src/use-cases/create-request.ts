@@ -119,16 +119,28 @@ export class CreateRequest {
       return failure(invalidRequestData(requestCreationResult.error));
     }
 
+    const snapshot = requestCreationResult.value.request.toSnapshot();
+
     const persistenceResult = await this.#requestRepository.createRequest({
       request: requestCreationResult.value.request,
       initialStatus: requestCreationResult.value.initialStatus,
+      auditEvent: Object.freeze({
+        tenantId: snapshot.tenantId,
+        actorMembershipId: actorMembershipIdResult.value,
+        eventType: 'request.created',
+        entityType: 'request',
+        entityId: snapshot.id,
+        occurredAt: new Date(snapshot.createdAt.getTime()),
+        metadata: Object.freeze({
+          status: 'received',
+          sourceType: snapshot.sourceType,
+        }),
+      }),
     });
 
     if (!persistenceResult.ok) {
       return failure(mapRepositoryError(persistenceResult.error));
     }
-
-    const snapshot = requestCreationResult.value.request.toSnapshot();
 
     return success(
       Object.freeze({
