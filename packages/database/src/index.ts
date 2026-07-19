@@ -6,4 +6,5 @@ export {
 } from './client.js';
 export { DrizzleActiveMembershipResolver } from './active-membership-resolver.js';
 export { DrizzleRequestRepository } from './request-repository.js';
+export { DrizzleRequestAssessmentRepository } from './request-assessment-repository.js';
 export * from './schema/index.js';

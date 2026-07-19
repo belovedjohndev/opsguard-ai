@@ -1,9 +1,11 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   timestamp,
   unique,
@@ -96,7 +98,7 @@ export const aiRuns = pgTable(
     requestId: uuid('request_id').notNull(),
     promptVersionId: uuid('prompt_version_id').notNull(),
     modelConfigurationId: uuid('model_configuration_id').notNull(),
-    status: aiRunStatusEnum('status').default('queued').notNull(),
+    status: aiRunStatusEnum('status').default('running').notNull(),
     providerRequestId: varchar('provider_request_id', { length: 255 }),
     inputTokens: integer('input_tokens'),
     outputTokens: integer('output_tokens'),
@@ -166,5 +168,103 @@ export const aiRuns = pgTable(
     ),
     index('ai_runs_tenant_prompt_version_idx').on(table.tenantId, table.promptVersionId),
     index('ai_runs_tenant_model_configuration_idx').on(table.tenantId, table.modelConfigurationId),
+  ],
+);
+
+export const requestAssessments = pgTable(
+  'request_assessments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    requestId: uuid('request_id').notNull(),
+    aiRunId: uuid('ai_run_id').notNull(),
+    schemaVersion: varchar('schema_version', { length: 50 }).notNull(),
+    intent: varchar('intent', { length: 50 }).notNull(),
+    confidenceBasisPoints: integer('confidence_basis_points').notNull(),
+    proposedRoute: varchar('proposed_route', { length: 50 }).notNull(),
+    effectiveRoute: varchar('effective_route', { length: 50 }).notNull(),
+    requiresReview: boolean('requires_review').notNull(),
+    customer: jsonb('customer').notNull(),
+    serviceRequest: jsonb('service_request').notNull(),
+    urgencyIndicators: jsonb('urgency_indicators').notNull(),
+    missingInformation: jsonb('missing_information').notNull(),
+    evidenceReferences: jsonb('evidence_references').notNull(),
+    createdAt: timestamp('created_at', { mode: 'date', precision: 3, withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId],
+      foreignColumns: [tenants.id],
+      name: 'request_assessments_tenant_id_fkey',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.tenantId, table.requestId],
+      foreignColumns: [requests.tenantId, requests.id],
+      name: 'request_assessments_tenant_id_request_id_fkey',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.tenantId, table.aiRunId],
+      foreignColumns: [aiRuns.tenantId, aiRuns.id],
+      name: 'request_assessments_tenant_id_ai_run_id_fkey',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    unique('request_assessments_tenant_id_id_key').on(table.tenantId, table.id),
+    unique('request_assessments_tenant_ai_run_key').on(table.tenantId, table.aiRunId),
+    check(
+      'request_assessments_schema_version_check',
+      sql`${table.schemaVersion} = 'request-assessment-v1'`,
+    ),
+    check(
+      'request_assessments_confidence_basis_points_check',
+      sql`${table.confidenceBasisPoints} BETWEEN 0 AND 10000`,
+    ),
+    check(
+      'request_assessments_intent_check',
+      sql`${table.intent} IN ('new_service_request', 'support_request', 'billing_request', 'complaint', 'cancellation_request', 'general_inquiry', 'unrelated', 'unknown')`,
+    ),
+    check(
+      'request_assessments_proposed_route_check',
+      sql`${table.proposedRoute} IN ('sales', 'support', 'billing', 'operations', 'manual_review', 'reject_unrelated')`,
+    ),
+    check(
+      'request_assessments_effective_route_check',
+      sql`${table.effectiveRoute} IN ('sales', 'support', 'billing', 'operations', 'manual_review', 'reject_unrelated')`,
+    ),
+    check(
+      'request_assessments_customer_object_check',
+      sql`jsonb_typeof(${table.customer}) = 'object'`,
+    ),
+    check(
+      'request_assessments_service_request_object_check',
+      sql`jsonb_typeof(${table.serviceRequest}) = 'object'`,
+    ),
+    check(
+      'request_assessments_urgency_array_check',
+      sql`jsonb_typeof(${table.urgencyIndicators}) = 'array'`,
+    ),
+    check(
+      'request_assessments_missing_information_array_check',
+      sql`jsonb_typeof(${table.missingInformation}) = 'array'`,
+    ),
+    check(
+      'request_assessments_evidence_references_array_check',
+      sql`jsonb_typeof(${table.evidenceReferences}) = 'array'`,
+    ),
+    check(
+      'request_assessments_json_size_check',
+      sql`octet_length(${table.customer}::text) + octet_length(${table.serviceRequest}::text) + octet_length(${table.urgencyIndicators}::text) + octet_length(${table.missingInformation}::text) + octet_length(${table.evidenceReferences}::text) <= 16384`,
+    ),
+    index('request_assessments_tenant_request_created_at_idx').on(
+      table.tenantId,
+      table.requestId,
+      table.createdAt,
+    ),
   ],
 );

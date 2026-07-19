@@ -30,7 +30,6 @@ export const requestStatusEnum = pgEnum('request_status', [
 ]);
 
 export const aiRunStatusEnum = pgEnum('ai_run_status', [
-  'queued',
   'running',
   'succeeded',
   'failed',
