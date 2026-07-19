@@ -13,15 +13,21 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./openai": {
+      "types": "./dist/providers/openai/index.d.ts",
+      "default": "./dist/providers/openai/index.js"
     }
   },
   "scripts": {
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config ../../vitest.config.ts --root .",
+    "test:integration": "vitest run --config ../../vitest.config.ts --root . src/providers/openai/openai-model-gateway.integration.test.ts",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@opsguard/contracts": "workspace:*"
+    "@opsguard/contracts": "workspace:*",
+    "openai": "6.48.0"
   }
 }
