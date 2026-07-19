@@ -200,8 +200,13 @@ export const mapOpenAIResponse = <TOutput extends JsonValue>(
   }
 
   if (content.refusals !== 0 || content.texts.length !== 1) {
+    const code =
+      response.status === 'incomplete' &&
+      response.incomplete_details?.reason === 'max_output_tokens'
+        ? 'MALFORMED_RESPONSE'
+        : 'OUTPUT_SCHEMA_MISMATCH';
     return createOpenAIFailure(
-      'OUTPUT_SCHEMA_MISMATCH',
+      code,
       'OpenAI did not return exactly one structured output.',
       configuredModelId,
       'response',
