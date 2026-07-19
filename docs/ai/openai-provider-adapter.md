@@ -1,7 +1,7 @@
 # OpenAI Provider Adapter
 
-**Roadmap slice:** Week 1, Day 9 — First Provider Adapter  
-**Status:** Implementation specification  
+**Roadmap slice:** Week 1, Day 9 — First Provider Adapter
+**Status:** Implementation specification
 **Date:** 2026-07-19
 
 ## Purpose
