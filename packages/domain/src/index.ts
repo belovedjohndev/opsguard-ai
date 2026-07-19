@@ -37,3 +37,20 @@ export {
   type InitialRequestStatus,
   type RequestTransition,
 } from './request/request-transition.js';
+export {
+  determineRequestAssessmentReview,
+  parseRequestAssessmentV1,
+  requestAssessmentIntents,
+  requestAssessmentReviewThreshold,
+  requestAssessmentRoutes,
+  requestAssessmentSchemaVersion,
+  requestAssessmentUrgencyIndicators,
+  type RequestAssessmentEvidenceReference,
+  type RequestAssessmentIntent,
+  type RequestAssessmentReview,
+  type RequestAssessmentRoute,
+  type RequestAssessmentUrgencyIndicator,
+  type RequestAssessmentV1,
+  type RequestAssessmentValidationError,
+  type RequestAssessmentValidationReason,
+} from './request/request-assessment.js';
