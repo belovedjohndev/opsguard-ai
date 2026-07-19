@@ -98,7 +98,7 @@ export const aiRuns = pgTable(
     requestId: uuid('request_id').notNull(),
     promptVersionId: uuid('prompt_version_id').notNull(),
     modelConfigurationId: uuid('model_configuration_id').notNull(),
-    status: aiRunStatusEnum('status').default('running').notNull(),
+    status: aiRunStatusEnum('status').default('queued').notNull(),
     providerRequestId: varchar('provider_request_id', { length: 255 }),
     inputTokens: integer('input_tokens'),
     outputTokens: integer('output_tokens'),

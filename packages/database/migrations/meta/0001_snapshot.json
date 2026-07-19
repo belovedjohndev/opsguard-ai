@@ -1,5 +1,5 @@
 {
-  "id": "1907cdad-415f-426e-b141-3758dd9a3388",
+  "id": "63949f83-bb8b-42cc-98cf-c770306ff86a",
   "prevId": "1f38ec63-a5ff-45ca-9f8c-718c71f9d3e3",
   "version": "7",
   "dialect": "postgresql",
@@ -45,7 +45,7 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
-          "default": "'running'"
+          "default": "'queued'"
         },
         "provider_request_id": {
           "name": "provider_request_id",
@@ -1573,6 +1573,7 @@
       "name": "ai_run_status",
       "schema": "public",
       "values": [
+        "queued",
         "running",
         "succeeded",
         "failed",

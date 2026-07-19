@@ -30,13 +30,6 @@ CREATE TABLE "request_assessments" (
 	CONSTRAINT "request_assessments_json_size_check" CHECK (octet_length("request_assessments"."customer"::text) + octet_length("request_assessments"."service_request"::text) + octet_length("request_assessments"."urgency_indicators"::text) + octet_length("request_assessments"."missing_information"::text) + octet_length("request_assessments"."evidence_references"::text) <= 16384)
 );
 --> statement-breakpoint
-ALTER TABLE "ai_runs" ALTER COLUMN "status" SET DATA TYPE text;--> statement-breakpoint
-UPDATE "ai_runs" SET "status" = 'running' WHERE "status" = 'queued';--> statement-breakpoint
-ALTER TABLE "ai_runs" ALTER COLUMN "status" SET DEFAULT 'running'::text;--> statement-breakpoint
-DROP TYPE "public"."ai_run_status";--> statement-breakpoint
-CREATE TYPE "public"."ai_run_status" AS ENUM('running', 'succeeded', 'failed', 'cancelled');--> statement-breakpoint
-ALTER TABLE "ai_runs" ALTER COLUMN "status" SET DEFAULT 'running'::"public"."ai_run_status";--> statement-breakpoint
-ALTER TABLE "ai_runs" ALTER COLUMN "status" SET DATA TYPE "public"."ai_run_status" USING "status"::"public"."ai_run_status";--> statement-breakpoint
 ALTER TABLE "request_assessments" ADD CONSTRAINT "request_assessments_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE restrict;--> statement-breakpoint
 ALTER TABLE "request_assessments" ADD CONSTRAINT "request_assessments_tenant_id_request_id_fkey" FOREIGN KEY ("tenant_id","request_id") REFERENCES "public"."requests"("tenant_id","id") ON DELETE restrict ON UPDATE restrict;--> statement-breakpoint
 ALTER TABLE "request_assessments" ADD CONSTRAINT "request_assessments_tenant_id_ai_run_id_fkey" FOREIGN KEY ("tenant_id","ai_run_id") REFERENCES "public"."ai_runs"("tenant_id","id") ON DELETE restrict ON UPDATE restrict;--> statement-breakpoint

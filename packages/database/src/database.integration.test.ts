@@ -140,6 +140,7 @@ describe.sequential('initial PostgreSQL migration', () => {
       'audit_events',
       'model_configurations',
       'prompt_versions',
+      'request_assessments',
       'request_status_history',
       'requests',
       'tenant_memberships',
