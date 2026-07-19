@@ -13,6 +13,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./openai": {
+      "types": "./dist/providers/openai/index.d.ts",
+      "default": "./dist/providers/openai/index.js"
     }
   },
   "scripts": {
@@ -22,6 +26,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@opsguard/contracts": "workspace:*"
+    "@opsguard/contracts": "workspace:*",
+    "openai": "6.48.0"
   }
 }
