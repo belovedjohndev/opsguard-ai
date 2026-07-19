@@ -193,10 +193,10 @@ identity. No mutable global provider state exists.
 
 ## Fake adapter and contract tests
 
-`FakeModelGateway` is exported from the explicit `@opsguard/ai-core/testing` entry point. Each
-instance owns a copied FIFO outcome queue and frozen request history. It supports success, refusal,
-and every normalized error, returns outcomes in order, does no I/O, does not inspect or log sensitive
-content, and fails with a stable test-only error when its queue is exhausted.
+`FakeModelGateway` is an intentional test-support export from `@opsguard/ai-core`. Each instance owns
+a copied FIFO outcome queue and frozen request history. It supports success, refusal, and every
+normalized error, returns outcomes in order, does no I/O, does not inspect or log sensitive content,
+and fails with a stable test-only error when its queue is exhausted.
 
 Contract tests cover complete request forwarding (including cancellation identity), success and
 refusal discrimination and metadata, every error category, queue order, call recording, defensive
