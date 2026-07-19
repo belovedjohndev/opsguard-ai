@@ -26,7 +26,8 @@
     "db:migrate": "pnpm --filter @opsguard/database db:migrate",
     "db:check": "pnpm --filter @opsguard/database db:check",
     "db:test": "pnpm --filter @opsguard/database... build && pnpm --filter @opsguard/database db:test",
-    "api:test:integration": "pnpm --filter @opsguard/api... build && pnpm --filter @opsguard/api test:integration"
+    "api:test:integration": "pnpm --filter @opsguard/api... build && pnpm --filter @opsguard/api test:integration",
+    "ai:test:integration": "pnpm --filter @opsguard/ai-core... build && pnpm --filter @opsguard/ai-core test:integration"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
