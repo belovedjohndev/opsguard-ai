@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
-import { CreateRequest } from '@opsguard/application';
-import { resolveApiRuntimeConfig } from '@opsguard/config';
+import { AssessRequest, CreateRequest } from '@opsguard/application';
+import { createOpenAIModelGateway } from '@opsguard/ai-core/openai';
+import { resolveApiRuntimeConfig, resolveOpenAIRuntimeConfig } from '@opsguard/config';
 import {
   createApplicationDatabaseConnection,
   DrizzleActiveMembershipResolver,
+  DrizzleRequestAssessmentRepository,
   DrizzleRequestRepository,
   resolveApplicationDatabaseUrl,
 } from '@opsguard/database';
@@ -21,6 +23,7 @@ export const startApiServer = async (
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ): Promise<StartedApiServer> => {
   const runtimeConfig = resolveApiRuntimeConfig(environment);
+  const openAIConfig = resolveOpenAIRuntimeConfig(environment);
   const databaseUrl = resolveApplicationDatabaseUrl(environment);
   const connection = createApplicationDatabaseConnection(databaseUrl);
   let app: ReturnType<typeof buildApiApp> | undefined;
@@ -28,8 +31,24 @@ export const startApiServer = async (
   try {
     await connection.check();
 
+    const requestAssessmentRepository = new DrizzleRequestAssessmentRepository(connection.database);
     const configuredApp = buildApiApp({
       activeMembershipResolver: new DrizzleActiveMembershipResolver(connection.database),
+      assessRequest: new AssessRequest({
+        clock: () => new Date(),
+        modelConfiguration: {
+          configurationKey: 'request.assessment.default',
+          provider: 'openai',
+          model: openAIConfig.modelId,
+        },
+        modelGateway: createOpenAIModelGateway({
+          apiKey: openAIConfig.apiKey,
+          modelId: openAIConfig.modelId,
+        }),
+        requestAssessmentRepository,
+        timeoutMilliseconds: runtimeConfig.assessmentTimeoutMilliseconds,
+      }),
+      corsAllowedOrigins: runtimeConfig.corsAllowedOrigins,
       createRequest: new CreateRequest({
         clock: () => new Date(),
         generateRequestId: () => randomUUID(),

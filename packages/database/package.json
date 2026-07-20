@@ -23,7 +23,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
-    "db:test": "vitest run --config ../../vitest.config.ts --root . src/database.integration.test.ts src/request-repository.integration.test.ts src/request-assessment-repository.integration.test.ts"
+    "db:test": "vitest run --config ../../vitest.config.ts --root . src/database.integration.test.ts src/request-repository.integration.test.ts src/request-assessment-repository.integration.test.ts src/demo-seed.integration.test.ts",
+    "demo:seed": "node dist/demo-seed.js"
   },
   "dependencies": {
     "@opsguard/application": "workspace:*",

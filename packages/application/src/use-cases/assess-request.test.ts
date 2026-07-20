@@ -145,10 +145,22 @@ describe('AssessRequest', () => {
       ok: true,
       value: {
         requestId,
+        correlationId: command.correlationId,
         status: 'pending_review',
         aiRunStatus: 'succeeded',
-        effectiveRoute: 'operations',
-        requiresReview: false,
+        assessment: assessmentOutput,
+        decision: {
+          effectiveRoute: 'operations',
+          requiresReview: false,
+          modelRouteOverridden: false,
+        },
+        provenance: {
+          promptKey: 'request.assessment',
+          promptVersion: 2,
+          promptSha256: requestAssessmentPromptSha256,
+          provider: 'synthetic-provider',
+          model: 'synthetic-model',
+        },
       },
     });
     expect(repository.initializeCalls).toHaveLength(1);
@@ -160,6 +172,7 @@ describe('AssessRequest', () => {
       version: '1',
       strict: true,
     });
+    expect(gateway.requests[0]?.policy.maximumOutputTokens).toBe(2_000);
     expect(gateway.requests[0]?.messages[1]?.content).toContain('BEGIN_UNTRUSTED_REQUEST_TEXT');
     expect(gateway.requests[0]?.messages[1]?.content).toContain('END_UNTRUSTED_REQUEST_TEXT');
     expect(repository.finalizeCalls[0]?.outcome).toMatchObject({
@@ -185,8 +198,16 @@ describe('AssessRequest', () => {
       ok: true,
       value: {
         requestId,
+        correlationId: command.correlationId,
         status: 'pending_review',
         aiRunStatus: 'failed',
+        provenance: {
+          promptKey: 'request.assessment',
+          promptVersion: 2,
+          promptSha256: requestAssessmentPromptSha256,
+          provider: 'synthetic-provider',
+          model: 'synthetic-model',
+        },
         failureCode: 'invalid_assessment',
       },
     });
@@ -209,14 +230,60 @@ describe('AssessRequest', () => {
       ok: true,
       value: {
         requestId,
+        correlationId: command.correlationId,
         status: 'pending_review',
         aiRunStatus: 'cancelled',
+        provenance: {
+          promptKey: 'request.assessment',
+          promptVersion: 2,
+          promptSha256: requestAssessmentPromptSha256,
+          provider: 'synthetic-provider',
+          model: 'synthetic-model',
+        },
         failureCode: 'cancelled',
       },
     });
     expect(repository.finalizeCalls[0]?.outcome).toEqual(
       expect.objectContaining({ status: 'cancelled', failureCode: 'cancelled' }),
     );
+  });
+
+  it('preserves an incompatible model route while deterministic policy forces review', async () => {
+    const incompatibleOutput = {
+      ...assessmentOutput,
+      intent: 'support_request',
+      proposedRoute: 'sales',
+    };
+    const modelSuccess = createModelSuccess({
+      output: incompatibleOutput,
+      providerId: 'synthetic-provider',
+      modelId: 'synthetic-model',
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+      completionState: 'completed',
+      latencyMilliseconds: 8,
+    });
+    if (!modelSuccess.ok) throw new Error('Model success fixture must be valid.');
+    const { repository, useCase } = createUseCase(new FakeModelGateway([modelSuccess.value]));
+
+    const result = await useCase.execute(command);
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        assessment: { proposedRoute: 'sales' },
+        decision: {
+          effectiveRoute: 'manual_review',
+          requiresReview: true,
+          modelRouteOverridden: true,
+        },
+      },
+    });
+    expect(repository.finalizeCalls[0]?.outcome).toMatchObject({
+      status: 'succeeded',
+      assessment: { proposedRoute: 'sales' },
+      effectiveRoute: 'manual_review',
+      requiresReview: true,
+    });
   });
 
   it('does not call the gateway when request text is invalid', async () => {

@@ -12,9 +12,12 @@
     "test": "vitest run --config ../../vitest.config.ts --root . --exclude src/**/*.integration.test.ts",
     "test:integration": "vitest run --config ../../vitest.config.ts --root . src/api.integration.test.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js"
+    "dev": "node --env-file-if-exists=../../.env --watch --import tsx src/server.ts",
+    "start": "node --env-file-if-exists=../../.env dist/server.js"
   },
   "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@opsguard/ai-core": "workspace:*",
     "@opsguard/application": "workspace:*",
     "@opsguard/auth": "workspace:*",
     "@opsguard/config": "workspace:*",
@@ -29,6 +32,7 @@
     "@types/pg": "8.20.0",
     "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
-    "pg": "8.22.0"
+    "pg": "8.22.0",
+    "tsx": "4.23.1"
   }
 }

@@ -5,6 +5,8 @@ import { resolveApiRuntimeConfig } from './index.js';
 describe('resolveApiRuntimeConfig', () => {
   it('uses loopback-safe development defaults', () => {
     expect(resolveApiRuntimeConfig({})).toEqual({
+      assessmentTimeoutMilliseconds: 30_000,
+      corsAllowedOrigins: ['http://localhost:5173', 'http://127.0.0.1:5173'],
       host: '127.0.0.1',
       port: 3000,
     });
@@ -17,6 +19,8 @@ describe('resolveApiRuntimeConfig', () => {
         API_PORT: '8080',
       }),
     ).toEqual({
+      assessmentTimeoutMilliseconds: 30_000,
+      corsAllowedOrigins: ['http://localhost:5173', 'http://127.0.0.1:5173'],
       host: '0.0.0.0',
       port: 8080,
     });

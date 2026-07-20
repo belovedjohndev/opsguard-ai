@@ -2,9 +2,29 @@
 
 OpsGuard AI is a multi-tenant, AI-assisted operational workflow platform for controlled request intake, assessment, approval, integration execution, reconciliation, and audit.
 
-This repository contains the Week 1 foundations through **Day 6: Fastify API and Tenant Context**.
-It includes deterministic request creation and tenant-aware PostgreSQL persistence, but no model
-provider, workflow, webhook, tool, document, retrieval, or production-authentication integration.
+This repository contains the Week 1 foundations through **Day 12: Evaluation Runner**, plus a
+submission-focused hackathon demo slice. It includes deterministic request creation, tenant-aware
+PostgreSQL persistence, provider-neutral structured assessment, an OpenAI adapter, and evaluation
+coverage. It does not include workflow execution, tools, retrieval, or production authentication.
+
+## Hackathon demo
+
+The single-page React/Vite demo exposes one controlled workflow: create a synthetic tenant-scoped
+request, ask GPT for a structured proposal, validate it, apply deterministic route policy, persist
+audit lineage, and display the outcome. No external action is executed.
+
+```bash
+pnpm infra:up
+pnpm db:migrate
+pnpm demo:seed
+pnpm dev:api
+pnpm dev:web
+```
+
+Configure the API and web variables from `.env.example`, including a server-only OpenAI key and an
+explicit CORS origin allowlist. See the [demo specification](docs/hackathon/demo-spec.md) and
+[demo runbook](docs/hackathon/demo-runbook.md) for the architecture, security boundary, scenarios,
+local smoke test, and deployment checklist.
 
 ## Architectural guardrails
 
@@ -87,8 +107,8 @@ The application PostgreSQL schema contains the Day 4 tenant, user, membership, r
 request-history, AI-run metadata, prompt-version metadata, model-configuration metadata, and audit
 tables. Composite foreign keys enforce same-tenant relationships at the database boundary. Day 6
 adds active-membership resolution and atomic request, initial-history, and creation-audit persistence.
-Row-level security, production authentication, broader request operations, and AI behavior remain
-deferred.
+Row-level security, production authentication, broader request operations, workflow execution, and
+external integrations remain deferred.
 
 ```bash
 pnpm db:generate

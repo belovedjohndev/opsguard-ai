@@ -27,6 +27,9 @@
     "db:check": "pnpm --filter @opsguard/database db:check",
     "db:test": "pnpm --filter @opsguard/database... build && pnpm --filter @opsguard/database db:test",
     "api:test:integration": "pnpm --filter @opsguard/api... build && pnpm --filter @opsguard/api test:integration",
+    "demo:seed": "pnpm --filter @opsguard/database... build && pnpm --filter @opsguard/database demo:seed",
+    "dev:api": "pnpm --filter @opsguard/api... build && pnpm --filter @opsguard/api dev",
+    "dev:web": "pnpm --filter @opsguard/web dev",
     "ai:test:integration": "pnpm --filter @opsguard/ai-core... build && pnpm --filter @opsguard/ai-core test:integration",
     "eval:request-assessment": "pnpm --filter @opsguard/evaluation-cli... build && pnpm --filter @opsguard/evaluation-cli eval:request-assessment"
   },

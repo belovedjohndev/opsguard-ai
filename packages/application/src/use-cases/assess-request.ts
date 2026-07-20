@@ -17,6 +17,7 @@ import {
   parseTenantMembershipId,
   success,
   type RequestAssessmentV1,
+  type RequestAssessmentRoute,
   type Result,
 } from '@opsguard/domain';
 
@@ -35,7 +36,8 @@ import type {
   RequestAssessmentRepository,
 } from '../ports/request-assessment-repository.js';
 
-const maximumRequestTextLength = 20_000;
+export const maximumAssessRequestTextLength = 20_000;
+export const requestAssessmentMaximumOutputTokens = 2_000;
 const maximumCorrelationIdLength = 255;
 
 export type AssessRequestCommand = Readonly<{
@@ -55,14 +57,35 @@ export type AssessRequestError =
   | Readonly<{ code: 'ASSESSMENT_CONFIGURATION_CONFLICT' }>
   | Readonly<{ code: 'UNEXPECTED_ASSESSMENT_FAILURE' }>;
 
-export type AssessRequestOutput = Readonly<{
+type AssessRequestOutputBase = Readonly<{
   requestId: string;
+  correlationId: string;
   status: 'pending_review';
-  aiRunStatus: 'succeeded' | 'failed' | 'cancelled';
-  effectiveRoute?: string;
-  requiresReview?: boolean;
-  failureCode?: string;
+  provenance: Readonly<{
+    promptKey: typeof requestAssessmentPromptKey;
+    promptVersion: typeof requestAssessmentPromptVersion;
+    promptSha256: typeof requestAssessmentPromptSha256;
+    provider: string;
+    model: string;
+  }>;
 }>;
+
+export type AssessRequestOutput = AssessRequestOutputBase &
+  (
+    | Readonly<{
+        aiRunStatus: 'succeeded';
+        assessment: RequestAssessmentV1;
+        decision: Readonly<{
+          effectiveRoute: RequestAssessmentRoute;
+          requiresReview: boolean;
+          modelRouteOverridden: boolean;
+        }>;
+      }>
+    | Readonly<{
+        aiRunStatus: 'failed' | 'cancelled';
+        failureCode: string;
+      }>
+  );
 
 export type AssessRequestDependencies = Readonly<{
   requestAssessmentRepository: RequestAssessmentRepository;
@@ -146,7 +169,7 @@ export class AssessRequest {
       return failure({ code: 'INVALID_ASSESS_REQUEST_INPUT', field: 'actorMembershipId' });
     if (
       command.requestText.trim().length === 0 ||
-      command.requestText.length > maximumRequestTextLength
+      command.requestText.length > maximumAssessRequestTextLength
     )
       return failure({ code: 'INVALID_ASSESS_REQUEST_INPUT', field: 'requestText' });
     if (
@@ -190,7 +213,7 @@ export class AssessRequest {
       allowedModelIds: [this.#modelConfiguration.model],
       qualityTier: 'balanced',
       fallbackAllowed: false,
-      maximumOutputTokens: 1_000,
+      maximumOutputTokens: requestAssessmentMaximumOutputTokens,
     });
     const outputSchema = createOutputSchemaDescriptor({
       name: 'request_assessment_v1',
@@ -238,6 +261,13 @@ export class AssessRequest {
     });
     if (!endTransition.ok) return failure({ code: 'UNEXPECTED_ASSESSMENT_FAILURE' });
     const completion = safeCompletion(result);
+    const configuredProvenance = Object.freeze({
+      promptKey: requestAssessmentPromptKey,
+      promptVersion: requestAssessmentPromptVersion,
+      promptSha256: requestAssessmentPromptSha256,
+      provider: this.#modelConfiguration.provider,
+      model: this.#modelConfiguration.model,
+    });
     let outcome: FinalizeAssessmentRun['outcome'];
     let output: AssessRequestOutput;
     if (result.status === 'success') {
@@ -253,17 +283,29 @@ export class AssessRequest {
         };
         output = {
           requestId: requestId.value,
+          correlationId: command.correlationId,
           status: 'pending_review',
           aiRunStatus: 'succeeded',
-          effectiveRoute: review.effectiveRoute,
-          requiresReview: review.requiresReview,
+          assessment: assessment.value,
+          decision: Object.freeze({
+            effectiveRoute: review.effectiveRoute,
+            requiresReview: review.requiresReview,
+            modelRouteOverridden: assessment.value.proposedRoute !== review.effectiveRoute,
+          }),
+          provenance: Object.freeze({
+            ...configuredProvenance,
+            provider: result.providerId,
+            model: result.modelId,
+          }),
         };
       } else {
         outcome = { status: 'failed', failureCode: 'invalid_assessment', completion };
         output = {
           requestId: requestId.value,
+          correlationId: command.correlationId,
           status: 'pending_review',
           aiRunStatus: 'failed',
+          provenance: configuredProvenance,
           failureCode: 'invalid_assessment',
         };
       }
@@ -271,8 +313,14 @@ export class AssessRequest {
       outcome = { status: 'failed', failureCode: `refusal_${result.refusal.category}`, completion };
       output = {
         requestId: requestId.value,
+        correlationId: command.correlationId,
         status: 'pending_review',
         aiRunStatus: 'failed',
+        provenance: Object.freeze({
+          ...configuredProvenance,
+          provider: result.providerId,
+          model: result.modelId,
+        }),
         failureCode: `refusal_${result.refusal.category}`,
       };
     } else {
@@ -284,8 +332,10 @@ export class AssessRequest {
       };
       output = {
         requestId: requestId.value,
+        correlationId: command.correlationId,
         status: 'pending_review',
         aiRunStatus: cancelled ? 'cancelled' : 'failed',
+        provenance: configuredProvenance,
         failureCode: cancelled ? 'cancelled' : `gateway_${result.error.code.toLowerCase()}`,
       };
     }

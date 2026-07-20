@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CreateRequest } from '@opsguard/application';
+import { AssessRequest, CreateRequest } from '@opsguard/application';
+import { createModelSuccess, FakeModelGateway } from '@opsguard/ai-core';
 import {
   DrizzleActiveMembershipResolver,
+  DrizzleRequestAssessmentRepository,
   DrizzleRequestRepository,
   resolveApplicationDatabaseUrl,
 } from '@opsguard/database';
@@ -56,8 +58,49 @@ const requireTestPool = (): Pool => {
 
 const buildDatabaseBackedApp = (): FastifyInstance => {
   const database = drizzle(requireTestPool(), { schema: databaseSchema });
+  const modelSuccess = createModelSuccess({
+    output: {
+      schemaVersion: 'request-assessment-v1',
+      intent: 'new_service_request',
+      confidence: 0.97,
+      customer: {
+        name: 'Maria Santos',
+        email: 'maria.santos@example.test',
+        phone: null,
+        accountReference: null,
+      },
+      serviceRequest: {
+        summary: 'Install a new split-system air conditioner.',
+        requestedService: 'new split-system air conditioner',
+        requestedTiming: 'next Tuesday',
+        location: '42 Pine Street, Cebu City',
+      },
+      urgencyIndicators: ['time_sensitive'],
+      missingInformation: [],
+      proposedRoute: 'sales',
+      evidenceReferences: [],
+    },
+    providerId: 'synthetic-provider',
+    modelId: 'synthetic-model',
+    usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+    completionState: 'completed',
+    latencyMilliseconds: 25,
+  });
+  if (!modelSuccess.ok) throw new Error('API integration model fixture must be valid.');
   const app = buildApiApp({
     activeMembershipResolver: new DrizzleActiveMembershipResolver(database),
+    assessRequest: new AssessRequest({
+      clock: () => new Date(),
+      modelConfiguration: {
+        configurationKey: 'request.assessment.integration',
+        provider: 'synthetic-provider',
+        model: 'synthetic-model',
+      },
+      modelGateway: new FakeModelGateway([modelSuccess.value]),
+      requestAssessmentRepository: new DrizzleRequestAssessmentRepository(database),
+      timeoutMilliseconds: 10_000,
+    }),
+    corsAllowedOrigins: ['http://localhost:5173'],
     createRequest: new CreateRequest({
       clock: () => new Date('2026-07-18T10:00:00.000Z'),
       generateRequestId: () => randomUUID(),
@@ -264,5 +307,91 @@ describe.sequential('request creation API with PostgreSQL', () => {
       history_count: '1',
       request_count: '1',
     });
+  });
+
+  it('assesses a tenant-owned request and persists validated policy and provenance records', async () => {
+    const app = buildDatabaseBackedApp();
+    const requestText =
+      'Maria Santos at maria.santos@example.test needs a new split-system air conditioner installed at 42 Pine Street, Cebu City next Tuesday.';
+    const created = await app.inject({
+      headers: tenantAHeaders,
+      method: 'POST',
+      payload: { sourceReference: `api-assessment-${randomUUID()}`, sourceType: 'form' },
+      url: '/v1/requests',
+    });
+    const createdBody = created.json<{ requestId: string }>();
+
+    const assessed = await app.inject({
+      headers: tenantAHeaders,
+      method: 'POST',
+      payload: { requestText, tenantId: fixture.tenantBId },
+      url: `/v1/requests/${createdBody.requestId}/assessment`,
+    });
+
+    expect(assessed.statusCode).toBe(200);
+    expect(assessed.json()).toMatchObject({
+      requestId: createdBody.requestId,
+      status: 'pending_review',
+      aiRunStatus: 'succeeded',
+      assessment: { intent: 'new_service_request', proposedRoute: 'sales' },
+      decision: {
+        effectiveRoute: 'sales',
+        requiresReview: false,
+        modelRouteOverridden: false,
+      },
+      provenance: {
+        promptKey: 'request.assessment',
+        promptVersion: 2,
+        provider: 'synthetic-provider',
+        model: 'synthetic-model',
+      },
+    });
+    expect(assessed.json<{ correlationId: string }>().correlationId).toBe(
+      assessed.headers['x-request-id'],
+    );
+
+    const persisted = await requireTestPool().query<{
+      assessment_count: string;
+      request_status: string;
+      run_status: string;
+    }>(
+      `SELECT
+         r.status AS request_status,
+         (SELECT count(*) FROM ai_runs ar
+           WHERE ar.tenant_id = r.tenant_id AND ar.request_id = r.id
+             AND ar.status = 'succeeded') AS run_status,
+         (SELECT count(*) FROM request_assessments ra
+           WHERE ra.tenant_id = r.tenant_id AND ra.request_id = r.id) AS assessment_count
+       FROM requests r
+       WHERE r.tenant_id = $1 AND r.id = $2`,
+      [fixture.tenantAId, createdBody.requestId],
+    );
+    expect(persisted.rows).toEqual([
+      { assessment_count: '1', request_status: 'pending_review', run_status: '1' },
+    ]);
+  });
+
+  it('does not reveal a request across an active tenant boundary', async () => {
+    const app = buildDatabaseBackedApp();
+    const created = await app.inject({
+      headers: tenantAHeaders,
+      method: 'POST',
+      payload: { sourceReference: `api-cross-tenant-${randomUUID()}`, sourceType: 'form' },
+      url: '/v1/requests',
+    });
+    const createdBody = created.json<{ requestId: string }>();
+
+    const response = await app.inject({
+      headers: {
+        'x-opsguard-tenant-id': fixture.tenantBId,
+        'x-opsguard-user-id': fixture.userBId,
+      },
+      method: 'POST',
+      payload: { requestText: 'Synthetic cross-tenant attempt.' },
+      url: `/v1/requests/${createdBody.requestId}/assessment`,
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({ error: { code: 'REQUEST_NOT_FOUND' } });
   });
 });
