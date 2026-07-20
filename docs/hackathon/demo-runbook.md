@@ -69,9 +69,11 @@ Open `http://127.0.0.1:5173`. API health is available at `http://127.0.0.1:3000/
 
 ```text
 API_HOST
-API_PORT
+PORT (provided by Render)
+API_PORT (optional explicit override)
 API_CORS_ALLOWED_ORIGINS
 ASSESSMENT_TIMEOUT_MS
+APP_POSTGRES_URL (managed deployment)
 APP_POSTGRES_PORT
 APP_POSTGRES_USER
 APP_POSTGRES_PASSWORD
@@ -83,10 +85,10 @@ OPENAI_MODEL
 `API_CORS_ALLOWED_ORIGINS` is a comma-separated list of exact HTTP(S) origins. Never use `*` for a
 deployed demo. Credentials are not enabled for CORS.
 
-The existing database URL resolver targets PostgreSQL on `127.0.0.1`. A deployed API therefore
-needs PostgreSQL itself, or an approved database proxy, reachable on loopback at
-`APP_POSTGRES_PORT`. Direct managed-database host or `DATABASE_URL` support is not part of this
-slice and requires a separate security-reviewed configuration change.
+`APP_POSTGRES_URL` takes precedence when it is non-empty and must use `postgres:` or `postgresql:`.
+Use Render's internal connection URL without copying it into logs or frontend configuration. The
+individual `APP_POSTGRES_*` fields remain the local Docker fallback. `API_PORT` takes precedence
+over Render's `PORT`; omit `API_PORT` on Render unless an explicit override is intended.
 
 ### Web
 
@@ -180,20 +182,72 @@ authorization policy remain out of scope.
 13. API logs contain no request text, prompt text, model output, authentication headers, or secrets.
 14. Every state displays “No external action was executed.”
 
-## Deployment checklist
+## Manual cloud deployment
 
-- Provision PostgreSQL or an approved local database proxy reachable from the API on loopback, then
-  apply both existing migrations.
-- Seed only the synthetic demo tenant.
-- Set `API_HOST`, `API_PORT`, database variables, `OPENAI_API_KEY`, `OPENAI_MODEL`, and a finite
-  `ASSESSMENT_TIMEOUT_MS` in the API environment.
-- Set `API_CORS_ALLOWED_ORIGINS` to the exact deployed web origin; do not use a wildcard.
-- Set web build variables to the deployed API URL and stable synthetic tenant/user UUIDs.
-- Confirm the API key is server-only and absent from built web assets.
-- Deploy the API and verify `/health` before deploying the web application.
-- Run all three scenarios using synthetic data and inspect redacted API logs.
-- Confirm database records are tenant-consistent and requests stop at `pending_review`.
-- Confirm no external workflow or integration credentials are configured.
+No `render.yaml` or `vercel.json` is required for this deployment. Configure both services through
+their dashboards.
+
+### Render Postgres
+
+- Provision Render Postgres in the same region as the API Web Service.
+- Use its internal connection URL for `APP_POSTGRES_URL`; prefer it over the public database URL.
+- Do not copy the connection URL into source control, logs, Vercel, or any `VITE_` variable.
+
+### Render API Web Service
+
+| Setting | Value |
+|---|---|
+| Repository | `belovedjohndev/opsguard-ai` |
+| Runtime | Node |
+| Build command | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @opsguard/api... build` |
+| Start command | `pnpm db:migrate && pnpm demo:seed && pnpm --filter @opsguard/api start` |
+| Health endpoint | `/health` |
+
+Configure these API environment variables:
+
+```text
+API_HOST=0.0.0.0
+APP_POSTGRES_URL=<Render Postgres internal connection URL>
+API_CORS_ALLOWED_ORIGINS=https://<exact Vercel production origin>
+ASSESSMENT_TIMEOUT_MS=30000
+OPENAI_API_KEY=<secret>
+OPENAI_MODEL=<explicit approved model ID>
+```
+
+Render provides `PORT`; leave `API_PORT` unset so the service uses it. If both are configured,
+`API_PORT` intentionally wins. Keep `OPENAI_API_KEY` in Render's secret environment settings.
+
+### Vercel web project
+
+| Setting | Value |
+|---|---|
+| Repository | `belovedjohndev/opsguard-ai` |
+| Root directory | `apps/web` |
+| Include source files outside root directory | Enabled |
+| Install command | `cd ../.. && corepack enable && pnpm install --frozen-lockfile` |
+| Build command | `cd ../.. && pnpm --filter @opsguard/web... build` |
+| Output directory | `dist` |
+
+Configure these Vercel build environment variables:
+
+```text
+VITE_API_BASE_URL=https://<Render API origin>
+VITE_DEMO_TENANT_ID=8f7e6d5c-4b3a-4210-9fed-cba987654321
+VITE_DEMO_USER_ID=719e2bb4-0a4e-4f04-9fd1-d7261ed71f11
+```
+
+Never add `OPENAI_API_KEY` or the database URL to a `VITE_` variable.
+
+### Deployment order
+
+1. Provision Render Postgres.
+2. Deploy the Render API in the same region.
+3. Verify `GET /health` on the Render API HTTPS origin.
+4. Deploy the Vercel web project.
+5. Set `API_CORS_ALLOWED_ORIGINS` to the exact Vercel production origin.
+6. Redeploy the Render API.
+7. Run all three browser scenarios, inspect redacted API logs, and confirm every request stops at
+   `pending_review` with no external action.
 
 ## What was built during the hackathon
 

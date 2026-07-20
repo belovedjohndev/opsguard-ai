@@ -15,22 +15,35 @@ const DEFAULT_LOCAL_CORS_ORIGINS = Object.freeze([
   'http://127.0.0.1:5173',
 ] as const);
 
-const parsePort = (value: string | undefined): number => {
-  if (value === undefined || value.trim().length === 0) {
-    return DEFAULT_API_PORT;
+type ApiPortEnvironmentVariable = 'API_PORT' | 'PORT';
+
+const parsePort = (value: string, variable: ApiPortEnvironmentVariable): number => {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    throw new Error(`API configuration error: ${variable} must be an integer.`);
   }
 
-  const port = Number(value);
+  const port = Number(normalized);
 
-  if (!Number.isInteger(port)) {
-    throw new Error('API configuration error: API_PORT must be an integer.');
-  }
-
-  if (port < 1 || port > 65_535) {
-    throw new Error('API configuration error: API_PORT must be between 1 and 65535.');
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`API configuration error: ${variable} must be between 1 and 65535.`);
   }
 
   return port;
+};
+
+const resolvePort = (environment: Readonly<Record<string, string | undefined>>): number => {
+  const apiPort = environment['API_PORT'];
+  if (apiPort !== undefined && apiPort.trim().length > 0) {
+    return parsePort(apiPort, 'API_PORT');
+  }
+
+  const platformPort = environment['PORT'];
+  if (platformPort !== undefined && platformPort.trim().length > 0) {
+    return parsePort(platformPort, 'PORT');
+  }
+
+  return DEFAULT_API_PORT;
 };
 
 const parseAssessmentTimeout = (value: string | undefined): number => {
@@ -103,6 +116,6 @@ export const resolveApiRuntimeConfig = (
       configuredHost === undefined || configuredHost.length === 0
         ? DEFAULT_API_HOST
         : configuredHost,
-    port: parsePort(environment['API_PORT']),
+    port: resolvePort(environment),
   });
 };
