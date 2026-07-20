@@ -20,77 +20,71 @@ export function AssessmentResults({ requestText, result }: AssessmentResultsProp
     : 'Automatic route eligible';
 
   return (
-    <section className="results-section" aria-labelledby="results-heading">
-      <div className="section-heading results-title">
-        <div>
-          <p className="eyebrow">Validated outcome</p>
-          <h2 id="results-heading">Controlled assessment</h2>
+    <section className="assessment-results" aria-label="Assessment result">
+      <article className="decision-card">
+        <div className="card-heading">
+          <div>
+            <p className="eyebrow">Validated outcome</p>
+            <h2>Decision</h2>
+          </div>
+          <span className={result.decision.requiresReview ? 'review-chip warning' : 'review-chip'}>
+            {reviewLabel}
+          </span>
         </div>
-        <span className="step-badge success-badge">02 / Complete</span>
-      </div>
 
-      <div className="results-grid">
-        <article className="result-card decision-card">
-          <div className="card-heading">
-            <div>
-              <p className="eyebrow">Deterministic policy</p>
-              <h3>Decision</h3>
-            </div>
-            <span
-              className={result.decision.requiresReview ? 'review-chip warning' : 'review-chip'}
-            >
-              {reviewLabel}
-            </span>
+        <dl className="decision-metrics">
+          <div>
+            <dt>Intent</dt>
+            <dd>{formatLabel(result.assessment.intent)}</dd>
           </div>
-
-          <div className="route-comparison">
-            <div>
-              <span>Model-proposed route</span>
-              <strong>{formatLabel(result.assessment.proposedRoute)}</strong>
-            </div>
-            <span className="route-arrow" aria-hidden="true">
-              →
-            </span>
-            <div className="effective-route">
-              <span>Effective route</span>
-              <strong>{formatLabel(result.decision.effectiveRoute)}</strong>
-            </div>
+          <div>
+            <dt>Confidence</dt>
+            <dd>{Math.round(result.assessment.confidence * 100)}%</dd>
           </div>
-
-          {result.decision.modelRouteOverridden ? (
-            <p className="override-notice" role="status">
-              Deterministic policy overrode the model proposal.
-            </p>
-          ) : (
-            <p className="policy-notice">Model proposal passed deterministic routing policy.</p>
-          )}
-
-          <div className="decision-metrics">
-            <div>
-              <span>Intent</span>
-              <strong>{formatLabel(result.assessment.intent)}</strong>
-            </div>
-            <div>
-              <span>Confidence</span>
-              <strong>{Math.round(result.assessment.confidence * 100)}%</strong>
-            </div>
-            <div>
-              <span>Request state</span>
-              <strong>{formatLabel(result.status)}</strong>
-            </div>
+          <div>
+            <dt>Proposed route</dt>
+            <dd>
+              <code className="route-value">{result.assessment.proposedRoute}</code>
+            </dd>
           </div>
-        </article>
+          <div className="effective-route">
+            <dt>Effective route</dt>
+            <dd>
+              <code className="route-value">{result.decision.effectiveRoute}</code>
+            </dd>
+          </div>
+          <div>
+            <dt>Review</dt>
+            <dd>{result.decision.requiresReview ? 'Manual' : 'Automatic'}</dd>
+          </div>
+          <div>
+            <dt>Model route overridden</dt>
+            <dd>{result.decision.modelRouteOverridden ? 'Yes' : 'No'}</dd>
+          </div>
+        </dl>
 
-        <article className="result-card">
-          <div className="card-heading">
-            <div>
-              <p className="eyebrow">Validated fields</p>
-              <h3>Extracted information</h3>
-            </div>
+        {result.decision.modelRouteOverridden ? (
+          <p className="override-notice" role="status">
+            <span aria-hidden="true">!</span>
+            Deterministic policy overrode the model proposal.
+          </p>
+        ) : (
+          <p className="policy-notice">
+            <span aria-hidden="true">✓</span>
+            Model proposal passed deterministic routing policy.
+          </p>
+        )}
+      </article>
+
+      <div className="result-section-grid">
+        <article className="result-panel">
+          <div className="panel-heading">
+            <span className="panel-index">01</span>
+            <h3>Extracted customer information</h3>
           </div>
           <dl className="detail-list">
             <div>
-              <dt>Customer name</dt>
+              <dt>Name</dt>
               <dd>{displayValue(result.assessment.customer.name)}</dd>
             </div>
             <div>
@@ -105,6 +99,15 @@ export function AssessmentResults({ requestText, result }: AssessmentResultsProp
               <dt>Account reference</dt>
               <dd>{displayValue(result.assessment.customer.accountReference)}</dd>
             </div>
+          </dl>
+        </article>
+
+        <article className="result-panel">
+          <div className="panel-heading">
+            <span className="panel-index">02</span>
+            <h3>Service request details</h3>
+          </div>
+          <dl className="detail-list">
             <div>
               <dt>Service</dt>
               <dd>{displayValue(result.assessment.serviceRequest.requestedService)}</dd>
@@ -124,49 +127,47 @@ export function AssessmentResults({ requestText, result }: AssessmentResultsProp
           </div>
         </article>
 
-        <article className="result-card">
-          <div className="card-heading">
-            <div>
-              <p className="eyebrow">Risk and completeness</p>
-              <h3>Operational signals</h3>
-            </div>
+        <article className="result-panel result-panel-wide">
+          <div className="panel-heading">
+            <span className="panel-index">03</span>
+            <h3>Urgency and missing information</h3>
           </div>
-          <div className="signal-group">
-            <span>Urgency indicators</span>
-            <div className="tag-list">
-              {result.assessment.urgencyIndicators.length > 0 ? (
-                result.assessment.urgencyIndicators.map((indicator) => (
-                  <span className="tag urgency-tag" key={indicator}>
-                    {formatLabel(indicator)}
-                  </span>
-                ))
-              ) : (
-                <span className="empty-value">None identified</span>
-              )}
+          <div className="signal-columns">
+            <div className="signal-group">
+              <span>Urgency indicators</span>
+              <div className="tag-list">
+                {result.assessment.urgencyIndicators.length > 0 ? (
+                  result.assessment.urgencyIndicators.map((indicator) => (
+                    <span className="tag urgency-tag" key={indicator}>
+                      {formatLabel(indicator)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="empty-value">None identified</span>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="signal-group">
-            <span>Missing information</span>
-            <div className="tag-list">
-              {result.assessment.missingInformation.length > 0 ? (
-                result.assessment.missingInformation.map((item) => (
-                  <span className="tag missing-tag" key={item}>
-                    {formatLabel(item)}
-                  </span>
-                ))
-              ) : (
-                <span className="empty-value">No required gaps identified</span>
-              )}
+            <div className="signal-group">
+              <span>Missing information</span>
+              <div className="tag-list">
+                {result.assessment.missingInformation.length > 0 ? (
+                  result.assessment.missingInformation.map((item) => (
+                    <span className="tag missing-tag" key={item}>
+                      {formatLabel(item)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="empty-value">No required gaps identified</span>
+                )}
+              </div>
             </div>
           </div>
         </article>
 
-        <article className="result-card">
-          <div className="card-heading">
-            <div>
-              <p className="eyebrow">Source-grounded</p>
-              <h3>Evidence</h3>
-            </div>
+        <article className="result-panel result-panel-wide">
+          <div className="panel-heading">
+            <span className="panel-index">04</span>
+            <h3>Evidence references</h3>
           </div>
           {result.assessment.evidenceReferences.length > 0 ? (
             <ul className="evidence-list">
@@ -178,13 +179,14 @@ export function AssessmentResults({ requestText, result }: AssessmentResultsProp
                 const excerpt = validRange
                   ? requestText.slice(reference.start, reference.end)
                   : 'Source range unavailable';
+
                 return (
                   <li key={`${reference.field}-${reference.start}-${reference.end}`}>
                     <div>
                       <strong>{formatLabel(reference.field)}</strong>
-                      <code>
+                      <span className="evidence-range">
                         {reference.start}:{reference.end}
-                      </code>
+                      </span>
                     </div>
                     {validRange ? <mark>{excerpt}</mark> : <span>{excerpt}</span>}
                   </li>
@@ -192,30 +194,47 @@ export function AssessmentResults({ requestText, result }: AssessmentResultsProp
               })}
             </ul>
           ) : (
-            <p className="empty-state">No validated evidence ranges were returned.</p>
+            <p className="empty-value">No validated evidence ranges were returned.</p>
           )}
         </article>
 
-        <article className="result-card provenance-card">
-          <div className="card-heading">
-            <div>
-              <p className="eyebrow">Audit lineage</p>
-              <h3>Provenance</h3>
-            </div>
+        <article className="result-panel">
+          <div className="panel-heading">
+            <span className="panel-index">05</span>
+            <h3>Provenance</h3>
           </div>
-          <dl className="provenance-list">
+          <dl className="metadata-list">
             <div>
               <dt>Prompt</dt>
               <dd>
-                {result.provenance.promptKey} · v{result.provenance.promptVersion}
+                <code>
+                  {result.provenance.promptKey} / v{result.provenance.promptVersion}
+                </code>
               </dd>
             </div>
             <div>
               <dt>Provider / model</dt>
               <dd>
-                {result.provenance.provider} / {result.provenance.model}
+                <code>
+                  {result.provenance.provider} / {result.provenance.model}
+                </code>
               </dd>
             </div>
+            <div>
+              <dt>Prompt SHA-256</dt>
+              <dd>
+                <code>{result.provenance.promptSha256}</code>
+              </dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="result-panel">
+          <div className="panel-heading">
+            <span className="panel-index">06</span>
+            <h3>Request and correlation IDs</h3>
+          </div>
+          <dl className="metadata-list identifier-list">
             <div>
               <dt>Request ID</dt>
               <dd>
@@ -229,31 +248,10 @@ export function AssessmentResults({ requestText, result }: AssessmentResultsProp
               </dd>
             </div>
             <div>
-              <dt>Prompt SHA-256</dt>
-              <dd>
-                <code>{result.provenance.promptSha256}</code>
-              </dd>
+              <dt>Request state</dt>
+              <dd>{formatLabel(result.status)}</dd>
             </div>
           </dl>
-        </article>
-
-        <article className="result-card safety-card">
-          <div className="card-heading">
-            <div>
-              <p className="eyebrow">Guardrails applied</p>
-              <h3>Safety controls</h3>
-            </div>
-            <span className="shield-icon" aria-hidden="true">
-              ✓
-            </span>
-          </div>
-          <ul className="control-list">
-            <li>Tenant membership verified server-side</li>
-            <li>Structured model output validated by domain code</li>
-            <li>Effective route calculated by deterministic policy</li>
-            <li>Prompt and model provenance retained for audit</li>
-          </ul>
-          <p className="no-action">No external action was executed.</p>
         </article>
       </div>
     </section>
