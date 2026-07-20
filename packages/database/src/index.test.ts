@@ -48,6 +48,7 @@ describe('@opsguard/database schema foundation', () => {
       APP_POSTGRES_DATABASE: 'opsguard_app_dev',
       APP_POSTGRES_PASSWORD: 'local password',
       APP_POSTGRES_PORT: '55436',
+      APP_POSTGRES_URL: '   ',
       APP_POSTGRES_USER: 'opsguard_app',
     });
     const parsed = new URL(connectionUrl);
@@ -57,6 +58,57 @@ describe('@opsguard/database schema foundation', () => {
     expect(parsed.username).toBe('opsguard_app');
     expect(parsed.password).toBe('local%20password');
     expect(parsed.pathname).toBe('/opsguard_app_dev');
+  });
+
+  it('uses the managed URL before incomplete or invalid local settings', () => {
+    const managedUrl =
+      'postgresql://render_user:render_password@internal.example.test:5432/opsguard';
+
+    expect(
+      resolveApplicationDatabaseUrl({
+        APP_POSTGRES_URL: managedUrl,
+        APP_POSTGRES_PORT: 'not-a-port',
+      }),
+    ).toBe(managedUrl);
+  });
+
+  it.each([
+    'postgres://render_user:render_password@internal.example.test:5432/opsguard',
+    'postgresql://render_user:render_password@internal.example.test:5432/opsguard',
+  ])('accepts a supported managed PostgreSQL protocol: %s', (managedUrl) => {
+    expect(resolveApplicationDatabaseUrl({ APP_POSTGRES_URL: managedUrl })).toBe(managedUrl);
+  });
+
+  it('preserves managed URL query and SSL parameters', () => {
+    const managedUrl =
+      'postgresql://render_user:render_password@internal.example.test:5432/opsguard?sslmode=require&connect_timeout=10';
+
+    expect(resolveApplicationDatabaseUrl({ APP_POSTGRES_URL: `  ${managedUrl}  ` })).toBe(
+      managedUrl,
+    );
+  });
+
+  it.each([
+    [
+      'postgresql://render_user:deployment-secret@',
+      'Database configuration error: APP_POSTGRES_URL must be a valid PostgreSQL URL.',
+    ],
+    [
+      'https://render_user:deployment-secret@internal.example.test/opsguard',
+      'Database configuration error: APP_POSTGRES_URL must use postgres: or postgresql:.',
+    ],
+  ])('rejects an invalid managed URL without exposing credentials', (managedUrl, message) => {
+    let caught: unknown;
+
+    try {
+      resolveApplicationDatabaseUrl({ APP_POSTGRES_URL: managedUrl });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toEqual(new Error(message));
+    expect(String(caught)).not.toContain('deployment-secret');
+    expect(String(caught)).not.toContain(managedUrl);
   });
 
   it('refuses missing, invalid, and Temporal database settings', () => {

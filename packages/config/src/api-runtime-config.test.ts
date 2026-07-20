@@ -24,6 +24,27 @@ describe('resolveApiRuntimeConfig', () => {
     });
   });
 
+  it('uses the platform PORT when API_PORT is absent', () => {
+    expect(resolveApiRuntimeConfig({ PORT: '10000' }).port).toBe(10_000);
+  });
+
+  it('gives an explicitly configured API_PORT precedence over PORT', () => {
+    expect(resolveApiRuntimeConfig({ API_PORT: '8080', PORT: '10000' }).port).toBe(8_080);
+  });
+
+  it('rejects API_PORT instead of falling back to a valid platform PORT', () => {
+    expect(() => resolveApiRuntimeConfig({ API_PORT: 'invalid', PORT: '10000' })).toThrow(
+      'API_PORT must be an integer',
+    );
+  });
+
+  it.each(['0', '65536', '1.5', '1e3', 'not-a-number'])(
+    'rejects an invalid platform PORT: %s',
+    (value) => {
+      expect(() => resolveApiRuntimeConfig({ PORT: value })).toThrow('PORT');
+    },
+  );
+
   it.each([
     ['*', 'explicit origins'],
     ['https://demo.example.test/path', 'invalid origin'],
