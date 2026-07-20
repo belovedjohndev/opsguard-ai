@@ -138,7 +138,7 @@ const initializeInput = (
       contentSha256: overrides.contentSha256 ?? prompt.contentSha256,
     },
     modelConfiguration,
-  }) as unknown as InitializeAssessmentRun;
+  }) satisfies InitializeAssessmentRun;
 
 const successfulFinalizeInput = (
   requestId: string,
@@ -195,11 +195,12 @@ const successfulFinalizeInput = (
         usage: {
           inputTokens: 120,
           outputTokens: 45,
+          totalTokens: 165,
         },
         latencyMilliseconds: 321,
       },
     },
-  }) as unknown as FinalizeAssessmentRun;
+  }) satisfies FinalizeAssessmentRun;
 
 beforeAll(async () => {
   const adminUrl = resolveApplicationDatabaseUrl(process.env);
