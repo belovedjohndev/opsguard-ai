@@ -33,7 +33,7 @@ PostgreSQL. Delivery packages do not use the assessment capability on Day 10.
 - `serviceRequest`: required `summary` plus nullable `requestedService`, `requestedTiming`, and
   `location`;
 - `urgencyIndicators`: bounded, duplicate-free urgency values;
-- `missingInformation`: bounded, duplicate-free, lexicographically ordered normalized identifiers;
+- `missingInformation`: bounded, duplicate-free normalized identifiers canonicalized into lexicographic order;
 - `proposedRoute`: one supported route; and
 - `evidenceReferences`: bounded `{ field, start, end }` references into ephemeral request text.
 
@@ -52,16 +52,17 @@ with another urgency value.
 
 ## Prompt version and structured schema
 
-The source-controlled system prompt uses key `request.assessment`, positive version `1`, and a
+The source-controlled system prompt uses key `request.assessment`, positive version `2`, and a
 declared lowercase SHA-256 verified against its exact UTF-8 content by test. The database stores the
 key, version, and hash—not prompt content. A conflicting tenant prompt key/version with another hash
 fails initialization.
 
 The provider-neutral request uses task `request.assessment` version `1` and strict JSON Schema name
 `request_assessment_v1`. Every object declares all required properties and
-`additionalProperties: false`; enums, bounds, array limits, nullability, and evidence integers are
-represented in the schema. Runtime validation remains mandatory because provider schema enforcement
-does not establish trust.
+`additionalProperties: false`. Provider-supported types, enums, nullability, numeric bounds, array
+limits, and evidence integers are represented in the schema. Unsupported provider constraints remain
+enforced by deterministic runtime validation because provider schema enforcement does not establish
+trust.
 
 ## Untrusted request handling
 
@@ -80,14 +81,17 @@ or provider-specific action appears in the prompt.
 The runtime parser accepts unknown input and returns deterministic field/reason errors without raw
 output. It rejects non-objects, arrays, prototypes other than ordinary or null JSON objects, missing
 or additional keys, unsupported enums, incorrect primitives, malformed nullables, non-finite or
-out-of-range confidence, oversized strings or arrays, duplicate or unordered normalized lists, and
-malformed evidence references. It never throws for expected validation failures.
+out-of-range confidence, oversized strings or arrays, duplicate normalized identifiers, and malformed
+evidence references. Valid missing-information identifiers are canonicalized lexicographically. It
+never throws for expected validation failures.
 
 ## Domain validation and confidence policy
 
 The named `requestAssessmentReviewThreshold` is `0.75`. Evidence offsets must be non-negative safe
-integers, `end` must exceed `start`, and ranges must not exceed the ephemeral request-text length.
-Overlapping ranges are allowed because multiple normalized fields may rely on the same source span.
+integers and `end` must exceed `start`. Structurally valid evidence items that exceed the ephemeral
+request-text length are omitted because evidence is optional; offsets are never clamped or invented.
+Overlapping in-range references are allowed because multiple normalized fields may rely on the same
+source span.
 
 The following deterministic rules apply:
 
@@ -96,7 +100,8 @@ The following deterministic rules apply:
 - any declared missing information requires review and effective route `manual_review`;
 - proposed `manual_review` remains manual review;
 - `unrelated` may propose only `reject_unrelated` or `manual_review`;
-- non-`unrelated` intents cannot propose `reject_unrelated`; and
+- non-`unrelated` intents cannot propose `reject_unrelated`;
+- intent-incompatible proposed routes require review and effective route `manual_review`; and
 - urgency is evidence only and never authorizes an action.
 
 The proposed route is stored unchanged. The effective route is a separate deterministic result.

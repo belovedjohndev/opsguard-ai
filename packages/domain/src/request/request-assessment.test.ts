@@ -55,12 +55,6 @@ describe('RequestAssessmentV1', () => {
       'unsupported',
     ],
     [
-      'unordered missing fields',
-      { missingInformation: ['phone', 'email'] },
-      'missingInformation[1]',
-      'not_ordered',
-    ],
-    [
       'invalid evidence range',
       { evidenceReferences: [{ field: 'x', start: 5, end: 5 }] },
       'evidenceReferences[0]',
@@ -86,6 +80,74 @@ describe('RequestAssessmentV1', () => {
     expect(result).toEqual({
       ok: false,
       error: { code: 'INVALID_REQUEST_ASSESSMENT', field, reason },
+    });
+  });
+
+  it('canonicalizes valid missing-information identifiers lexicographically', () => {
+    const result = parseRequestAssessmentV1(
+      { ...validAssessment, missingInformation: ['phone', 'email'] },
+      requestText.length,
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      value: { ...validAssessment, missingInformation: ['email', 'phone'] },
+    });
+  });
+
+  it('omits only structurally valid evidence that exceeds the raw request boundary', () => {
+    const result = parseRequestAssessmentV1(
+      {
+        ...validAssessment,
+        evidenceReferences: [
+          { field: 'serviceRequest.summary', start: 16, end: 37 },
+          { field: 'serviceRequest.requestedTiming', start: 48, end: 60 },
+        ],
+      },
+      requestText.length,
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        ...validAssessment,
+        evidenceReferences: [{ field: 'serviceRequest.summary', start: 16, end: 37 }],
+      },
+    });
+  });
+
+  it('does not repair malformed evidence into a valid range', () => {
+    const result = parseRequestAssessmentV1(
+      {
+        ...validAssessment,
+        evidenceReferences: [{ field: 'serviceRequest.summary', start: -1, end: 5 }],
+      },
+      requestText.length,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: 'INVALID_REQUEST_ASSESSMENT',
+        field: 'evidenceReferences[0]',
+        reason: 'invalid_range',
+      },
+    });
+  });
+
+  it('forces an intent-incompatible route to manual review', () => {
+    const assessment = parseRequestAssessmentV1(validAssessment, requestText.length);
+    if (!assessment.ok) throw new Error('Invalid fixture');
+
+    expect(
+      determineRequestAssessmentReview({
+        ...assessment.value,
+        intent: 'cancellation_request',
+        proposedRoute: 'billing',
+      }),
+    ).toEqual({
+      effectiveRoute: 'manual_review',
+      requiresReview: true,
     });
   });
 

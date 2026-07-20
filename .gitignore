@@ -19,3 +19,6 @@ dist/
 Thumbs.db
 .idea/
 .vscode/
+
+# Generated evaluation reports
+evaluations/reports/
