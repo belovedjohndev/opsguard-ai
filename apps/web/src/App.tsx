@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { createAndAssessRequest, DemoApiError, readDemoConfiguration } from './api.js';
-import type { AssessmentResponse, DemoErrorKind } from './api.js';
+import type { AssessmentResponse, DemoConfiguration, DemoErrorKind } from './api.js';
 import { AssessmentResults } from './components/AssessmentResults.js';
 import { RequestComposer } from './components/RequestComposer.js';
+import { presetScenarios } from './presets.js';
 
 const maximumRequestTextLength = 20_000;
 
@@ -13,6 +14,8 @@ type ViewState =
   | Readonly<{ kind: 'success'; result: AssessmentResponse; submittedText: string }>
   | Readonly<{ kind: 'error'; errorKind: DemoErrorKind; message: string }>;
 
+type HealthStatus = 'checking' | 'healthy' | 'unavailable';
+
 const errorTitles: Readonly<Record<DemoErrorKind, string>> = Object.freeze({
   validation: 'Check the request or demo configuration',
   authorization: 'Demo tenant authorization failed',
@@ -21,18 +24,67 @@ const errorTitles: Readonly<Record<DemoErrorKind, string>> = Object.freeze({
   unexpected: 'Assessment could not be displayed',
 });
 
+const scenarioIcons: Record<string, string> = {
+  'clear-service-request': '\u2713',
+  'prompt-injection-support-request': '\u26A0',
+  'conflicting-cancellation-request': '\u2716',
+};
+
+const scenarioCategories: Record<string, string> = {
+  'clear-service-request': 'Sales',
+  'prompt-injection-support-request': 'Adversarial',
+  'conflicting-cancellation-request': 'Conflict',
+};
+
+const healthMessages: Record<HealthStatus, string> = {
+  checking: 'Checking\u2026',
+  healthy: 'API healthy',
+  unavailable: 'API unavailable',
+};
+
 export function App() {
   const [requestText, setRequestText] = useState('');
   const [viewState, setViewState] = useState<ViewState>({ kind: 'idle' });
+  const [healthStatus, setHealthStatus] = useState<HealthStatus>('checking');
 
-  const apiStatus =
+  useEffect(() => {
+    let cancelled = false;
+    const checkHealth = async () => {
+      try {
+        let configuration: DemoConfiguration;
+        try {
+          configuration = readDemoConfiguration();
+        } catch {
+          if (!cancelled) setHealthStatus('unavailable');
+          return;
+        }
+        const response = await fetch(`${configuration.apiBaseUrl}/health`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!cancelled) {
+          setHealthStatus(response.ok ? 'healthy' : 'unavailable');
+        }
+      } catch {
+        if (!cancelled) setHealthStatus('unavailable');
+      }
+    };
+    void checkHealth();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedPreset = presetScenarios.find((p) => requestText === p.requestText);
+
+  const apiStatusFromSubmit =
     viewState.kind === 'submitting'
-      ? { label: 'API connecting', tone: 'pending' }
+      ? 'pending'
       : viewState.kind === 'success'
-        ? { label: 'API connected', tone: 'success' }
+        ? 'healthy'
         : viewState.kind === 'error' && viewState.errorKind === 'unavailable'
-          ? { label: 'API unavailable', tone: 'error' }
-          : { label: 'API not checked', tone: 'neutral' };
+          ? 'unavailable'
+          : healthStatus;
 
   const handleRequestTextChange = (value: string): void => {
     setRequestText(value);
@@ -83,37 +135,136 @@ export function App() {
       });
   };
 
+  const getSafetyNotice = () => {
+    switch (viewState.kind) {
+      case 'submitting':
+        return {
+          primary: 'No external action is being executed.',
+          secondary: 'The proposal is being validated against deterministic policy.',
+        };
+      case 'success':
+        return {
+          primary: 'No external action was executed.',
+          secondary: 'The assessment remains pending review.',
+        };
+      case 'error':
+        return {
+          primary: 'No external action was executed.',
+          secondary: 'The request failed before an operational decision could be made.',
+        };
+      default:
+        return {
+          primary: 'No external action will be executed.',
+          secondary: 'OpsGuard validates every model proposal before an operational decision.',
+        };
+    }
+  };
+
+  const safetyNotice = getSafetyNotice();
+
   return (
     <div className="app-shell">
-      <header className="site-header">
-        <a className="brand" href="#workspace" aria-label="OpsGuard AI workspace">
-          <span className="brand-mark" aria-hidden="true">
+      <header className="header">
+        <div className="header-brand">
+          <span className="header-mark" aria-hidden="true">
             OG
           </span>
-          <span className="brand-copy">
-            <strong>OpsGuard AI</strong>
-            <span>Controlled AI-Assisted Operations</span>
+          <span className="header-title">OpsGuard AI</span>
+        </div>
+        <div className="header-statuses">
+          <span className={`header-status status-${apiStatusFromSubmit}`} aria-label="API status">
+            <span className="dot" aria-hidden="true" />
+            <span className="header-status-label">{healthMessages[healthStatus]}</span>
           </span>
-        </a>
-
-        <div className="header-statuses" aria-label="System status">
-          <span className={`status-badge status-${apiStatus.tone}`}>
-            <span className="status-indicator" aria-hidden="true" />
-            {apiStatus.label}
-          </span>
-          <span className="status-badge status-success">
-            <span className="status-indicator" aria-hidden="true" />
-            Safety controls active
-          </span>
-          <span className="status-badge status-neutral">
-            <span className="status-indicator" aria-hidden="true" />
-            Tenant-scoped
+          <span className="header-tenant">
+            Tenant <strong>synthetic demo</strong>
           </span>
         </div>
       </header>
 
-      <main id="workspace" className="console-main">
-        <div className="workspace-grid">
+      <main className="main-layout">
+        <aside className="scenario-rail" aria-label="Demo scenarios">
+          <div className="rail-section">
+            <div className="rail-product">
+              <span className="rail-product-mark" aria-hidden="true">
+                OG
+              </span>
+              <div>
+                <span className="rail-product-name">OpsGuard AI</span>
+                <span className="rail-product-tagline">Controlled operations</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rail-section">
+            <p className="rail-heading">Demo scenarios</p>
+            <div className="rail-scenarios" role="group" aria-label="Preset scenarios">
+              {presetScenarios.map((preset) => {
+                const isSelected = requestText === preset.requestText;
+                return (
+                  <button
+                    className="rail-scenario"
+                    type="button"
+                    key={preset.id}
+                    aria-pressed={isSelected}
+                    disabled={viewState.kind === 'submitting'}
+                    onClick={() => handleRequestTextChange(preset.requestText)}
+                  >
+                    <span className="rail-scenario-icon" aria-hidden="true">
+                      {scenarioIcons[preset.id] ?? '\u25CB'}
+                    </span>
+                    <span className="rail-scenario-info">
+                      <span className="rail-scenario-name">{preset.label}</span>
+                      <span className="rail-scenario-category">
+                        {scenarioCategories[preset.id] ?? 'General'}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rail-section rail-status">
+            <div className="rail-status-item">
+              <span className={`dot ${apiStatusFromSubmit}`} aria-hidden="true" />
+              <span>
+                API{' '}
+                {apiStatusFromSubmit === 'healthy'
+                  ? 'connected'
+                  : apiStatusFromSubmit === 'pending'
+                    ? 'connecting'
+                    : apiStatusFromSubmit === 'unavailable'
+                      ? 'unavailable'
+                      : 'checked'}
+              </span>
+            </div>
+            <div className="rail-status-item">
+              <span className="dot success" aria-hidden="true" />
+              <span>Safety controls active</span>
+            </div>
+            <div className="rail-status-item">
+              <span className="dot success" aria-hidden="true" />
+              <span>Policy controlled</span>
+            </div>
+          </div>
+        </aside>
+
+        <section className="request-workspace" aria-labelledby="request-heading">
+          <div className="workspace-heading">
+            <p className="eyebrow">Request workspace</p>
+            <h1 id="request-heading">Operational request</h1>
+            <p className="workspace-helper">
+              Use a synthetic scenario or enter a request for controlled analysis.
+            </p>
+            {selectedPreset && (
+              <div className="scenario-badge">
+                <span aria-hidden="true">{scenarioIcons[selectedPreset.id] ?? '\u25CB'}</span>
+                {selectedPreset.label}
+              </div>
+            )}
+          </div>
+
           <RequestComposer
             requestText={requestText}
             isSubmitting={viewState.kind === 'submitting'}
@@ -122,98 +273,123 @@ export function App() {
             onReset={handleReset}
             onSubmit={handleSubmit}
           />
+        </section>
 
-          <section className="decision-workspace" aria-labelledby="decision-workspace-heading">
-            <div className="workspace-heading">
-              <div>
-                <p className="eyebrow">Decision workspace</p>
-                <h1 id="decision-workspace-heading">Assessment decision</h1>
-              </div>
-              <span className="control-badge">Policy controlled</span>
-            </div>
-
-            <div className="decision-state" aria-live="polite">
-              {viewState.kind === 'idle' ? (
-                <div className="empty-decision">
-                  <div className="decision-flow" aria-label="Assessment control flow">
-                    <span>Model proposal</span>
-                    <span className="flow-arrow" aria-hidden="true">
-                      →
-                    </span>
-                    <span>Policy validation</span>
-                    <span className="flow-arrow" aria-hidden="true">
-                      →
-                    </span>
-                    <span>Controlled outcome</span>
-                  </div>
-                  <p className="empty-decision-copy">
-                    Select a scenario or enter a request to inspect the controlled assessment.
-                  </p>
-                  <dl className="decision-placeholders">
-                    {[
-                      'Intent',
-                      'Confidence',
-                      'Proposed route',
-                      'Effective route',
-                      'Review requirement',
-                    ].map((label) => (
-                      <div key={label}>
-                        <dt>{label}</dt>
-                        <dd>Not assessed</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              ) : null}
-
-              {viewState.kind === 'submitting' ? (
-                <div className="processing-state" role="status" aria-label="Assessment in progress">
-                  <span className="processing-orbit" aria-hidden="true" />
-                  <div>
-                    <p className="eyebrow">Control pipeline active</p>
-                    <h2>Validating the model proposal</h2>
-                    <p>Creating the tenant request, validating structure, and applying policy.</p>
-                  </div>
-                  <ol className="processing-steps" aria-label="Assessment progress">
-                    <li>Request created</li>
-                    <li>Model assessment</li>
-                    <li>Policy decision</li>
-                  </ol>
-                </div>
-              ) : null}
-
-              {viewState.kind === 'error' ? (
-                <div className={`error-state error-${viewState.errorKind}`} role="alert">
-                  <span className="error-symbol" aria-hidden="true">
-                    !
-                  </span>
-                  <div>
-                    <p className="eyebrow">Safe stop</p>
-                    <h2>{errorTitles[viewState.errorKind]}</h2>
-                    <p>{viewState.message}</p>
-                  </div>
-                </div>
-              ) : null}
-
-              {viewState.kind === 'success' ? (
-                <AssessmentResults
-                  requestText={viewState.submittedText}
-                  result={viewState.result}
-                />
-              ) : null}
-            </div>
-
-            <aside className="execution-notice" aria-label="Execution safety notice">
-              <span className="notice-icon" aria-hidden="true">
-                ✓
+        <section className="decision-inspector" aria-labelledby="inspector-heading">
+          <div className="inspector-heading">
+            <div className="inspector-heading-row">
+              <h1 id="inspector-heading">Decision inspector</h1>
+              <span className="policy-badge">
+                <span className="dot" aria-hidden="true" />
+                Policy controlled
               </span>
-              <div>
-                <strong>No external action was executed.</strong>
-                <span>Assessment output remains pending review.</span>
+            </div>
+          </div>
+
+          <div className="inspector-content" aria-live="polite">
+            {viewState.kind === 'idle' && (
+              <div className="decision-pipeline" aria-label="Assessment control flow">
+                <div className="pipeline-node">
+                  <span className="node-icon" aria-hidden="true">
+                    1
+                  </span>
+                  Model proposal
+                </div>
+                <div className="pipeline-arrow" aria-hidden="true" />
+                <div className="pipeline-node">
+                  <span className="node-icon" aria-hidden="true">
+                    2
+                  </span>
+                  Schema validation
+                </div>
+                <div className="pipeline-arrow" aria-hidden="true" />
+                <div className="pipeline-node">
+                  <span className="node-icon" aria-hidden="true">
+                    3
+                  </span>
+                  Route compatibility
+                </div>
+                <div className="pipeline-arrow" aria-hidden="true" />
+                <div className="pipeline-node">
+                  <span className="node-icon" aria-hidden="true">
+                    4
+                  </span>
+                  Controlled outcome
+                </div>
+
+                <div
+                  className="decision-placeholder-list"
+                  style={{ width: '100%', marginTop: 'var(--space-4)' }}
+                >
+                  {[
+                    'Intent',
+                    'Confidence',
+                    'Proposed route',
+                    'Effective route',
+                    'Review requirement',
+                  ].map((label) => (
+                    <div className="decision-placeholder" key={label}>
+                      <span className="decision-placeholder-label">{label}</span>
+                      <span className="decision-placeholder-value">Not assessed</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </aside>
-          </section>
-        </div>
+            )}
+
+            {viewState.kind === 'submitting' && (
+              <div className="processing-state" role="status" aria-label="Assessment in progress">
+                <span className="processing-orbit" aria-hidden="true" />
+                <div>
+                  <h2 className="processing-title">Validating the model proposal</h2>
+                  <p className="processing-description">
+                    Creating the tenant request, validating structure, and applying policy.
+                  </p>
+                </div>
+                <div className="processing-steps" aria-label="Assessment progress">
+                  <span className="processing-step">
+                    <span className="processing-step-icon" aria-hidden="true" />
+                    Request created
+                  </span>
+                  <span className="processing-step">
+                    <span className="processing-step-icon" aria-hidden="true" />
+                    Model assessment
+                  </span>
+                  <span className="processing-step">
+                    <span className="processing-step-icon" aria-hidden="true" />
+                    Policy decision
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {viewState.kind === 'error' && (
+              <div className={`error-state error-${viewState.errorKind}`} role="alert">
+                <span className="error-icon" aria-hidden="true">
+                  !
+                </span>
+                <div className="error-content">
+                  <h2>{errorTitles[viewState.errorKind]}</h2>
+                  <p>{viewState.message}</p>
+                </div>
+              </div>
+            )}
+
+            {viewState.kind === 'success' && (
+              <AssessmentResults requestText={viewState.submittedText} result={viewState.result} />
+            )}
+          </div>
+
+          <aside className="safety-footer" aria-label="Execution safety notice">
+            <span className="safety-footer-icon" aria-hidden="true">
+              {'\u2713'}
+            </span>
+            <div className="safety-footer-text">
+              <span className="safety-footer-primary">{safetyNotice.primary}</span>
+              <span className="safety-footer-secondary">{safetyNotice.secondary}</span>
+            </div>
+          </aside>
+        </section>
       </main>
     </div>
   );

@@ -1,5 +1,3 @@
-import { presetScenarios } from '../presets.js';
-
 type RequestComposerProps = Readonly<{
   requestText: string;
   isSubmitting: boolean;
@@ -18,66 +16,32 @@ export function RequestComposer({
   onSubmit,
 }: RequestComposerProps) {
   return (
-    <section className="composer-panel" aria-labelledby="request-heading">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Request intake</p>
-          <h2 id="request-heading">Operational request</h2>
-          <p className="section-helper" id="request-helper">
-            Use a synthetic scenario or enter a request for controlled analysis.
-          </p>
-        </div>
-        <span className="section-step">01</span>
-      </div>
-
-      <div className="preset-list" aria-label="Preset scenarios">
-        {presetScenarios.map((preset) => {
-          const isSelected = requestText === preset.requestText;
-
-          return (
-            <button
-              className="preset-option"
-              type="button"
-              key={preset.id}
-              aria-pressed={isSelected}
-              disabled={isSubmitting}
-              onClick={() => onChange(preset.requestText)}
-            >
-              <span className="preset-selection" aria-hidden="true">
-                <span />
-              </span>
-              <span className="preset-copy">
-                <span className="preset-label">{preset.label}</span>
-                <span className="preset-description">{preset.description}</span>
-              </span>
-              <span className="preset-state">{isSelected ? 'Selected' : 'Select'}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="textarea-shell">
-        <div className="textarea-label-row">
-          <label htmlFor="request-text">Request text</label>
-          <span id="request-count" className="character-count">
+    <div className="request-editor">
+      <div className="editor-field">
+        <div className="editor-field-header">
+          <label className="editor-field-label" htmlFor="request-text">
+            Request text
+          </label>
+          <span id="request-count" className="editor-char-count">
             {requestText.length.toLocaleString()} / {maximumLength.toLocaleString()}
           </span>
         </div>
         <textarea
           id="request-text"
+          className="editor-textarea"
           value={requestText}
           maxLength={maximumLength}
           rows={9}
           disabled={isSubmitting}
-          aria-describedby="request-helper request-count"
+          aria-describedby="request-count"
           placeholder="Enter a synthetic operational request..."
           onChange={(event) => onChange(event.currentTarget.value)}
         />
       </div>
 
-      <div className="composer-actions">
+      <div className="editor-actions">
         <button
-          className="primary-action"
+          className="btn-analyze"
           type="button"
           disabled={isSubmitting || requestText.trim().length === 0}
           onClick={onSubmit}
@@ -92,7 +56,7 @@ export function RequestComposer({
           )}
         </button>
         <button
-          className="secondary-action"
+          className="btn-reset"
           type="button"
           disabled={isSubmitting || requestText.length === 0}
           onClick={onReset}
@@ -100,6 +64,6 @@ export function RequestComposer({
           Reset
         </button>
       </div>
-    </section>
+    </div>
   );
 }

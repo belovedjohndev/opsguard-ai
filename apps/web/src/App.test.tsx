@@ -70,13 +70,14 @@ describe('OpsGuard AI demo', () => {
   it('renders the intake before a stable assessment decision workspace', () => {
     render(<App />);
 
-    const workspace = document.querySelector('.workspace-grid');
-    expect(workspace).not.toBeNull();
-    expect(workspace?.children).toHaveLength(2);
+    const layout = document.querySelector('.main-layout');
+    expect(layout).not.toBeNull();
+    expect(layout?.children).toHaveLength(3);
     expect(screen.getByRole('heading', { name: 'Operational request' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Assessment decision' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Decision inspector' })).toBeTruthy();
     expect(screen.getByText('Model proposal')).toBeTruthy();
-    expect(screen.getByText('Policy validation')).toBeTruthy();
+    expect(screen.getByText('Schema validation')).toBeTruthy();
+    expect(screen.getByText('Route compatibility')).toBeTruthy();
     expect(screen.getByText('Controlled outcome')).toBeTruthy();
   });
 
@@ -90,7 +91,6 @@ describe('OpsGuard AI demo', () => {
         preset.requestText,
       );
       expect(presetButton.getAttribute('aria-pressed')).toBe('true');
-      expect(presetButton.textContent).toContain('Selected');
     }
   });
 
@@ -116,6 +116,7 @@ describe('OpsGuard AI demo', () => {
   it('creates a request before assessing it and renders the validated result', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({}, 200))
       .mockResolvedValueOnce(jsonResponse({ requestId }, 201))
       .mockResolvedValueOnce(jsonResponse(assessmentResponse));
     vi.stubGlobal('fetch', fetchMock);
@@ -126,13 +127,13 @@ describe('OpsGuard AI demo', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze request' }));
 
     await screen.findByRole('heading', { name: 'Decision' });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:3000/v1/requests');
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://127.0.0.1:3000/v1/requests');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
       `http://127.0.0.1:3000/v1/requests/${requestId}/assessment`,
     );
-    const createOptions = fetchMock.mock.calls[0]?.[1];
-    const assessOptions = fetchMock.mock.calls[1]?.[1];
+    const createOptions = fetchMock.mock.calls[1]?.[1];
+    const assessOptions = fetchMock.mock.calls[2]?.[1];
     expect(JSON.parse(String(createOptions?.body))).toMatchObject({ sourceType: 'form' });
     expect(JSON.parse(String(assessOptions?.body))).toEqual({ requestText: preset.requestText });
     expect(screen.getByText('Support Request')).toBeTruthy();
@@ -146,6 +147,7 @@ describe('OpsGuard AI demo', () => {
       'fetch',
       vi
         .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse({}, 200))
         .mockResolvedValueOnce(jsonResponse({ requestId }, 201))
         .mockResolvedValueOnce(jsonResponse(assessmentResponse)),
     );
@@ -157,13 +159,16 @@ describe('OpsGuard AI demo', () => {
     expect(
       await screen.findByText('Deterministic policy overrode the model proposal.'),
     ).toBeTruthy();
-    expect(screen.getByText('manual_review')).toBeTruthy();
+    expect(screen.getAllByText('manual_review').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Manual')).toBeTruthy();
   });
 
   it('disables duplicate submission while loading', async () => {
     const pending = new Promise<Response>(() => undefined);
-    const fetchMock = vi.fn<typeof fetch>().mockReturnValue(pending);
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({}, 200))
+      .mockReturnValue(pending);
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
 
@@ -181,7 +186,7 @@ describe('OpsGuard AI demo', () => {
     expect(screen.getByRole('heading', { name: 'Validating the model proposal' })).toBeTruthy();
     expect(textarea.value).toBe(submittedText);
     fireEvent.click(screen.getByRole('button', { name: /Analyzing request/i }));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('renders a sanitized model failure without provider content', async () => {
@@ -190,6 +195,7 @@ describe('OpsGuard AI demo', () => {
       'fetch',
       vi
         .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse({}, 200))
         .mockResolvedValueOnce(jsonResponse({ requestId }, 201))
         .mockResolvedValueOnce(
           jsonResponse({
