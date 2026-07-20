@@ -6,6 +6,7 @@ import {
   createStructuredModelRequest,
   type ModelGateway,
   type ModelGatewayResult,
+  type JsonValue,
 } from '@opsguard/ai-core';
 import {
   determineRequestAssessmentReview,
@@ -30,6 +31,7 @@ import {
 import type {
   AssessmentCompletion,
   AssessmentModelConfiguration,
+  FinalizeAssessmentRun,
   RequestAssessmentRepository,
 } from '../ports/request-assessment-repository.js';
 
@@ -85,9 +87,7 @@ const mapRepositoryError = (error: { code: string }): AssessRequestError => {
   }
 };
 
-const safeCompletion = (
-  result: ModelGatewayResult<import('@opsguard/ai-core').JsonValue>,
-): AssessmentCompletion => {
+const safeCompletion = (result: ModelGatewayResult<JsonValue>): AssessmentCompletion => {
   switch (result.status) {
     case 'success':
       return Object.freeze({
@@ -238,7 +238,7 @@ export class AssessRequest {
     });
     if (!endTransition.ok) return failure({ code: 'UNEXPECTED_ASSESSMENT_FAILURE' });
     const completion = safeCompletion(result);
-    let outcome: import('../ports/request-assessment-repository.js').FinalizeAssessmentRun['outcome'];
+    let outcome: FinalizeAssessmentRun['outcome'];
     let output: AssessRequestOutput;
     if (result.status === 'success') {
       const assessment = parseRequestAssessmentV1(result.output, command.requestText.length);

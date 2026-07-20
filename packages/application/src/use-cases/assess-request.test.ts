@@ -8,7 +8,6 @@ import {
   FakeModelGateway,
 } from '@opsguard/ai-core';
 import {
-  failure,
   parseRequestId,
   parseTenantId,
   parseTenantMembershipId,

@@ -6,7 +6,14 @@ import type {
   InitializeAssessmentRun,
   RequestAssessmentRepository,
 } from '@opsguard/application';
-import { failure, Request, success } from '@opsguard/domain';
+import {
+  failure,
+  Request,
+  success,
+  type RequestId,
+  type TenantId,
+  type TenantMembershipId,
+} from '@opsguard/domain';
 
 import type { OpsGuardDatabase } from './client.js';
 import { mapRequestRepositoryError } from './postgres-errors.js';
@@ -45,12 +52,11 @@ type StoredRequest = InferSelectModel<typeof requests>;
 
 const toReceivedRequest = (row: StoredRequest) =>
   Request.create({
-    id: row.id as import('@opsguard/domain').RequestId,
-    tenantId: row.tenantId as import('@opsguard/domain').TenantId,
+    id: row.id as RequestId,
+    tenantId: row.tenantId as TenantId,
     sourceType: row.sourceType,
     sourceReference: row.sourceReference,
-    createdByMembershipId: row.createdByMembershipId as
-      import('@opsguard/domain').TenantMembershipId | null,
+    createdByMembershipId: row.createdByMembershipId as TenantMembershipId | null,
     createdAt: row.updatedAt,
   });
 
@@ -241,7 +247,7 @@ export class DrizzleRequestAssessmentRepository implements RequestAssessmentRepo
         const transitioned = await transaction
           .update(requests)
           .set({
-            status: 'pending_review',
+            status: input.transition.nextStatus,
             updatedAt: input.transition.changedAt,
           })
           .where(
