@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   requestAssessmentPromptSha256,
+  requestAssessmentPromptVersion,
   requestAssessmentSystemPrompt,
 } from '../request-assessment-prompt.js';
 import type {
@@ -119,6 +120,7 @@ const command = {
 
 describe('AssessRequest', () => {
   it('uses the exact versioned prompt hash', () => {
+    expect(requestAssessmentPromptVersion).toBe(2);
     expect(createHash('sha256').update(requestAssessmentSystemPrompt, 'utf8').digest('hex')).toBe(
       requestAssessmentPromptSha256,
     );

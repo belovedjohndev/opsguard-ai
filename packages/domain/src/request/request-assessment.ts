@@ -25,6 +25,17 @@ export const requestAssessmentRoutes = Object.freeze([
 ] as const);
 export type RequestAssessmentRoute = (typeof requestAssessmentRoutes)[number];
 
+const compatibleRoutesByIntent = Object.freeze({
+  new_service_request: Object.freeze(['sales', 'operations', 'manual_review'] as const),
+  support_request: Object.freeze(['support', 'manual_review'] as const),
+  billing_request: Object.freeze(['billing', 'manual_review'] as const),
+  complaint: Object.freeze(['support', 'manual_review'] as const),
+  cancellation_request: Object.freeze(['operations', 'manual_review'] as const),
+  general_inquiry: Object.freeze(['operations', 'manual_review'] as const),
+  unrelated: Object.freeze(['reject_unrelated', 'manual_review'] as const),
+  unknown: Object.freeze(['manual_review'] as const),
+}) satisfies Readonly<Record<RequestAssessmentIntent, readonly RequestAssessmentRoute[]>>;
+
 export const requestAssessmentUrgencyIndicators = Object.freeze([
   'safety_risk',
   'service_outage',
@@ -72,7 +83,6 @@ export type RequestAssessmentValidationReason =
   | 'invalid_type'
   | 'not_finite'
   | 'not_normalized'
-  | 'not_ordered'
   | 'out_of_range'
   | 'unsupported';
 
@@ -174,9 +184,10 @@ const parseEvidenceReferences = (
     ) {
       return validationFailure(field, 'invalid_type');
     }
-    if (start < 0 || end <= start || end > requestTextLength) {
+    if (start < 0 || end <= start) {
       return validationFailure(field, 'invalid_range');
     }
+    if (start >= requestTextLength || end > requestTextLength) continue;
     references.push(Object.freeze({ field: evidenceField.value, start, end }));
   }
   return success(Object.freeze(references));
@@ -220,11 +231,9 @@ const parseMissingInformation = (
       return validationFailure(field, 'out_of_range');
     if (!normalizedIdentifier.test(entry)) return validationFailure(field, 'not_normalized');
     if (parsed.includes(entry)) return validationFailure(field, 'duplicate');
-    if (parsed.length > 0 && (parsed[parsed.length - 1] ?? '') >= entry) {
-      return validationFailure(field, 'not_ordered');
-    }
     parsed.push(entry);
   }
+  parsed.sort();
   return success(Object.freeze(parsed));
 };
 
@@ -370,11 +379,15 @@ export const parseRequestAssessmentV1 = (
 export const determineRequestAssessmentReview = (
   assessment: RequestAssessmentV1,
 ): RequestAssessmentReview => {
+  const compatibleRoutes: readonly RequestAssessmentRoute[] =
+    compatibleRoutesByIntent[assessment.intent];
+  const routeIsCompatible = compatibleRoutes.includes(assessment.proposedRoute);
   const requiresReview =
     assessment.confidence < requestAssessmentReviewThreshold ||
     assessment.intent === 'unknown' ||
     assessment.missingInformation.length > 0 ||
-    assessment.proposedRoute === 'manual_review';
+    assessment.proposedRoute === 'manual_review' ||
+    !routeIsCompatible;
   return Object.freeze({
     requiresReview,
     effectiveRoute: requiresReview ? 'manual_review' : assessment.proposedRoute,

@@ -78,15 +78,25 @@ importers:
       '@opsguard/ai-core':
         specifier: workspace:*
         version: link:../../packages/ai-core
+      '@opsguard/application':
+        specifier: workspace:*
+        version: link:../../packages/application
       '@opsguard/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@opsguard/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@opsguard/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@opsguard/testing':
         specifier: workspace:*
         version: link:../../packages/testing
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.0
+        version: 24.10.0
 
   apps/web:
     dependencies:
