@@ -21,43 +21,58 @@ export function RequestComposer({
     <section className="composer-panel" aria-labelledby="request-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Operational intake</p>
-          <h2 id="request-heading">Analyze a synthetic request</h2>
+          <p className="eyebrow">Request intake</p>
+          <h2 id="request-heading">Operational request</h2>
+          <p className="section-helper" id="request-helper">
+            Use a synthetic scenario or enter a request for controlled analysis.
+          </p>
         </div>
-        <span className="step-badge">01 / Input</span>
+        <span className="section-step">01</span>
       </div>
 
-      <div className="preset-grid" aria-label="Preset scenarios">
-        {presetScenarios.map((preset) => (
-          <button
-            className="preset-card"
-            type="button"
-            key={preset.id}
-            aria-pressed={requestText === preset.requestText}
-            disabled={isSubmitting}
-            onClick={() => onChange(preset.requestText)}
-          >
-            <span className="preset-label">{preset.label}</span>
-            <span className="preset-description">{preset.description}</span>
-          </button>
-        ))}
+      <div className="preset-list" aria-label="Preset scenarios">
+        {presetScenarios.map((preset) => {
+          const isSelected = requestText === preset.requestText;
+
+          return (
+            <button
+              className="preset-option"
+              type="button"
+              key={preset.id}
+              aria-pressed={isSelected}
+              disabled={isSubmitting}
+              onClick={() => onChange(preset.requestText)}
+            >
+              <span className="preset-selection" aria-hidden="true">
+                <span />
+              </span>
+              <span className="preset-copy">
+                <span className="preset-label">{preset.label}</span>
+                <span className="preset-description">{preset.description}</span>
+              </span>
+              <span className="preset-state">{isSelected ? 'Selected' : 'Select'}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="textarea-shell">
-        <label htmlFor="request-text">Request text</label>
+        <div className="textarea-label-row">
+          <label htmlFor="request-text">Request text</label>
+          <span id="request-count" className="character-count">
+            {requestText.length.toLocaleString()} / {maximumLength.toLocaleString()}
+          </span>
+        </div>
         <textarea
           id="request-text"
           value={requestText}
           maxLength={maximumLength}
-          rows={8}
+          rows={9}
           disabled={isSubmitting}
-          aria-describedby="request-count"
-          placeholder="Enter a synthetic operational request…"
+          aria-describedby="request-helper request-count"
+          placeholder="Enter a synthetic operational request..."
           onChange={(event) => onChange(event.currentTarget.value)}
         />
-        <span id="request-count" className="character-count">
-          {requestText.length.toLocaleString()} / {maximumLength.toLocaleString()}
-        </span>
       </div>
 
       <div className="composer-actions">
@@ -70,10 +85,10 @@ export function RequestComposer({
           {isSubmitting ? (
             <>
               <span className="spinner" aria-hidden="true" />
-              Validating proposal…
+              Analyzing request...
             </>
           ) : (
-            'Analyze Request'
+            'Analyze request'
           )}
         </button>
         <button

@@ -67,15 +67,50 @@ afterEach(() => {
 });
 
 describe('OpsGuard AI demo', () => {
-  it('selects each preset scenario into the request textarea', () => {
+  it('renders the intake before a stable assessment decision workspace', () => {
+    render(<App />);
+
+    const workspace = document.querySelector('.workspace-grid');
+    expect(workspace).not.toBeNull();
+    expect(workspace?.children).toHaveLength(2);
+    expect(screen.getByRole('heading', { name: 'Operational request' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Assessment decision' })).toBeTruthy();
+    expect(screen.getByText('Model proposal')).toBeTruthy();
+    expect(screen.getByText('Policy validation')).toBeTruthy();
+    expect(screen.getByText('Controlled outcome')).toBeTruthy();
+  });
+
+  it('selects each preset with explicit styling and state text', () => {
     render(<App />);
 
     for (const preset of presetScenarios) {
-      fireEvent.click(screen.getByRole('button', { name: new RegExp(preset.label, 'i') }));
+      const presetButton = screen.getByRole('button', { name: new RegExp(preset.label, 'i') });
+      fireEvent.click(presetButton);
       expect((screen.getByLabelText('Request text') as HTMLTextAreaElement).value).toBe(
         preset.requestText,
       );
+      expect(presetButton.getAttribute('aria-pressed')).toBe('true');
+      expect(presetButton.textContent).toContain('Selected');
     }
+  });
+
+  it('enables Analyze only when request text is present and resets the intake', () => {
+    render(<App />);
+
+    const textarea = screen.getByLabelText('Request text');
+    const analyze = screen.getByRole('button', { name: 'Analyze request' }) as HTMLButtonElement;
+    const reset = screen.getByRole('button', { name: 'Reset' }) as HTMLButtonElement;
+
+    expect(analyze.disabled).toBe(true);
+    expect(reset.disabled).toBe(true);
+
+    fireEvent.change(textarea, { target: { value: 'Synthetic operational request' } });
+    expect(analyze.disabled).toBe(false);
+    expect(reset.disabled).toBe(false);
+
+    fireEvent.click(reset);
+    expect((textarea as HTMLTextAreaElement).value).toBe('');
+    expect(analyze.disabled).toBe(true);
   });
 
   it('creates a request before assessing it and renders the validated result', async () => {
@@ -88,9 +123,9 @@ describe('OpsGuard AI demo', () => {
 
     const preset = presetScenarios[1];
     fireEvent.click(screen.getByRole('button', { name: new RegExp(preset.label, 'i') }));
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze Request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze request' }));
 
-    await screen.findByRole('heading', { name: 'Controlled assessment' });
+    await screen.findByRole('heading', { name: 'Decision' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:3000/v1/requests');
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
@@ -103,7 +138,7 @@ describe('OpsGuard AI demo', () => {
     expect(screen.getByText('Support Request')).toBeTruthy();
     expect(screen.getByText('noc@example.test')).toBeTruthy();
     expect(screen.getByText(requestId)).toBeTruthy();
-    expect(screen.getAllByText('No external action was executed.').length).toBeGreaterThan(0);
+    expect(screen.getByText('No external action was executed.')).toBeTruthy();
   });
 
   it('shows the deterministic route override message', async () => {
@@ -117,12 +152,13 @@ describe('OpsGuard AI demo', () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole('button', { name: /Prompt-injection support request/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze Request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze request' }));
 
     expect(
       await screen.findByText('Deterministic policy overrode the model proposal.'),
     ).toBeTruthy();
-    expect(screen.getByText('Manual Review')).toBeTruthy();
+    expect(screen.getByText('manual_review')).toBeTruthy();
+    expect(screen.getByText('Manual')).toBeTruthy();
   });
 
   it('disables duplicate submission while loading', async () => {
@@ -132,16 +168,19 @@ describe('OpsGuard AI demo', () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole('button', { name: /Clear service request/i }));
-    const submit = screen.getByRole('button', { name: 'Analyze Request' });
+    const textarea = screen.getByLabelText('Request text') as HTMLTextAreaElement;
+    const submittedText = textarea.value;
+    const submit = screen.getByRole('button', { name: 'Analyze request' });
     fireEvent.click(submit);
 
     await waitFor(() => {
       expect(
-        (screen.getByRole('button', { name: /Validating proposal/i }) as HTMLButtonElement)
-          .disabled,
+        (screen.getByRole('button', { name: /Analyzing request/i }) as HTMLButtonElement).disabled,
       ).toBe(true);
     });
-    fireEvent.click(screen.getByRole('button', { name: /Validating proposal/i }));
+    expect(screen.getByRole('heading', { name: 'Validating the model proposal' })).toBeTruthy();
+    expect(textarea.value).toBe(submittedText);
+    fireEvent.click(screen.getByRole('button', { name: /Analyzing request/i }));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -165,7 +204,7 @@ describe('OpsGuard AI demo', () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole('button', { name: /Clear service request/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze Request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze request' }));
 
     expect(
       await screen.findByRole('heading', { name: 'Model assessment stopped safely' }),
