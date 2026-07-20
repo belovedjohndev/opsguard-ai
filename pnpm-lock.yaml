@@ -120,12 +120,19 @@ importers:
 
   packages/application:
     dependencies:
+      '@opsguard/ai-core':
+        specifier: workspace:*
+        version: link:../ai-core
       '@opsguard/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@opsguard/domain':
         specifier: workspace:*
         version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.0
+        version: 24.10.0
 
   packages/auth:
     dependencies:
