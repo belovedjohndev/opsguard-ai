@@ -33,6 +33,8 @@ export {
 } from './ports/request-assessment-repository.js';
 export {
   AssessRequest,
+  maximumAssessRequestTextLength,
+  requestAssessmentMaximumOutputTokens,
   type AssessRequestCommand,
   type AssessRequestDependencies,
   type AssessRequestError,

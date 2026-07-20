@@ -1,0 +1,176 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { App } from './App.js';
+import { presetScenarios } from './presets.js';
+
+const requestId = '52c46b7f-ef13-4404-9cf5-c236ba1150a2';
+const correlationId = '81881e5f-c076-4d2d-903d-1438947f196c';
+
+const jsonResponse = (body: unknown, status = 200): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+
+const assessmentResponse = Object.freeze({
+  requestId,
+  correlationId,
+  status: 'pending_review',
+  aiRunStatus: 'succeeded',
+  assessment: {
+    schemaVersion: 'request-assessment-v1',
+    intent: 'support_request',
+    confidence: 0.98,
+    customer: {
+      name: null,
+      email: 'noc@example.test',
+      phone: null,
+      accountReference: 'ACCT-712',
+    },
+    serviceRequest: {
+      summary: 'Account ACCT-712 is offline.',
+      requestedService: null,
+      requestedTiming: null,
+      location: null,
+    },
+    urgencyIndicators: ['service_outage'],
+    missingInformation: [],
+    proposedRoute: 'sales',
+    evidenceReferences: [{ field: 'customer.accountReference', start: 70, end: 78 }],
+  },
+  decision: {
+    effectiveRoute: 'manual_review',
+    requiresReview: true,
+    modelRouteOverridden: true,
+  },
+  provenance: {
+    promptKey: 'request.assessment',
+    promptVersion: 2,
+    promptSha256: '14aa90a99b1a6a17b4eb733ccb84f171499a91da49de5bc11703922ccf1779a5',
+    provider: 'openai',
+    model: 'synthetic-model',
+  },
+});
+
+beforeEach(() => {
+  vi.stubEnv('VITE_API_BASE_URL', 'http://127.0.0.1:3000');
+  vi.stubEnv('VITE_DEMO_TENANT_ID', '8f7e6d5c-4b3a-4210-9fed-cba987654321');
+  vi.stubEnv('VITE_DEMO_USER_ID', '719e2bb4-0a4e-4f04-9fd1-d7261ed71f11');
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+describe('OpsGuard AI demo', () => {
+  it('selects each preset scenario into the request textarea', () => {
+    render(<App />);
+
+    for (const preset of presetScenarios) {
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(preset.label, 'i') }));
+      expect((screen.getByLabelText('Request text') as HTMLTextAreaElement).value).toBe(
+        preset.requestText,
+      );
+    }
+  });
+
+  it('creates a request before assessing it and renders the validated result', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ requestId }, 201))
+      .mockResolvedValueOnce(jsonResponse(assessmentResponse));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    const preset = presetScenarios[1];
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(preset.label, 'i') }));
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze Request' }));
+
+    await screen.findByRole('heading', { name: 'Controlled assessment' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:3000/v1/requests');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `http://127.0.0.1:3000/v1/requests/${requestId}/assessment`,
+    );
+    const createOptions = fetchMock.mock.calls[0]?.[1];
+    const assessOptions = fetchMock.mock.calls[1]?.[1];
+    expect(JSON.parse(String(createOptions?.body))).toMatchObject({ sourceType: 'form' });
+    expect(JSON.parse(String(assessOptions?.body))).toEqual({ requestText: preset.requestText });
+    expect(screen.getByText('Support Request')).toBeTruthy();
+    expect(screen.getByText('noc@example.test')).toBeTruthy();
+    expect(screen.getByText(requestId)).toBeTruthy();
+    expect(screen.getAllByText('No external action was executed.').length).toBeGreaterThan(0);
+  });
+
+  it('shows the deterministic route override message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse({ requestId }, 201))
+        .mockResolvedValueOnce(jsonResponse(assessmentResponse)),
+    );
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Prompt-injection support request/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze Request' }));
+
+    expect(
+      await screen.findByText('Deterministic policy overrode the model proposal.'),
+    ).toBeTruthy();
+    expect(screen.getByText('Manual Review')).toBeTruthy();
+  });
+
+  it('disables duplicate submission while loading', async () => {
+    const pending = new Promise<Response>(() => undefined);
+    const fetchMock = vi.fn<typeof fetch>().mockReturnValue(pending);
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Clear service request/i }));
+    const submit = screen.getByRole('button', { name: 'Analyze Request' });
+    fireEvent.click(submit);
+
+    await waitFor(() => {
+      expect(
+        (screen.getByRole('button', { name: /Validating proposal/i }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Validating proposal/i }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a sanitized model failure without provider content', async () => {
+    const providerSecret = 'raw-provider-body-secret';
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse({ requestId }, 201))
+        .mockResolvedValueOnce(
+          jsonResponse({
+            requestId,
+            correlationId,
+            status: 'pending_review',
+            aiRunStatus: 'failed',
+            failure: { code: 'gateway_unavailable', message: providerSecret },
+          }),
+        ),
+    );
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Clear service request/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze Request' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Model assessment stopped safely' }),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain(providerSecret);
+    expect(document.body.textContent).toContain('No external action was executed.');
+  });
+});

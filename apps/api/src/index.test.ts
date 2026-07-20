@@ -11,6 +11,12 @@ describe('buildApiApp', () => {
           throw new Error('The health route must not resolve membership.');
         },
       },
+      assessRequest: {
+        execute: async () => {
+          throw new Error('The health route must not assess a request.');
+        },
+      },
+      corsAllowedOrigins: ['http://localhost:5173'],
       createRequest: {
         execute: async () => {
           throw new Error('The health route must not create a request.');

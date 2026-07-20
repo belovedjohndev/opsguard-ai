@@ -1,14 +1,21 @@
 import { randomUUID } from 'node:crypto';
 
 import type { ActiveMembershipResolver } from '@opsguard/auth';
+import cors from '@fastify/cors';
 import Fastify from 'fastify';
 
 import { sendApiError } from './http-errors.js';
 import { createTenantContextAuthenticator } from './request-context.js';
-import { registerRequestRoutes, type CreateRequestExecutor } from './request-routes.js';
+import {
+  registerRequestRoutes,
+  type AssessRequestExecutor,
+  type CreateRequestExecutor,
+} from './request-routes.js';
 
 export type BuildApiAppOptions = Readonly<{
   activeMembershipResolver: ActiveMembershipResolver;
+  assessRequest: AssessRequestExecutor;
+  corsAllowedOrigins: readonly string[];
   createRequest: CreateRequestExecutor;
   generateRequestId?: () => string;
   logger?: boolean;
@@ -37,6 +44,23 @@ export const buildApiApp = (options: BuildApiAppOptions) => {
     done();
   });
 
+  const allowedOrigins = new Set(options.corsAllowedOrigins);
+  app.addHook('onRequest', (request, reply, done) => {
+    const origin = request.headers.origin;
+    if (origin !== undefined && (typeof origin !== 'string' || !allowedOrigins.has(origin))) {
+      void sendApiError(reply, 403, 'ORIGIN_NOT_ALLOWED', request.id);
+      return;
+    }
+
+    done();
+  });
+
+  void app.register(cors, {
+    credentials: false,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    origin: [...allowedOrigins],
+  });
+
   app.decorateRequest('tenantContext', null);
 
   app.setErrorHandler((error, request, reply) => {
@@ -57,6 +81,7 @@ export const buildApiApp = (options: BuildApiAppOptions) => {
   registerRequestRoutes(
     app,
     options.createRequest,
+    options.assessRequest,
     createTenantContextAuthenticator(options.activeMembershipResolver),
   );
 
