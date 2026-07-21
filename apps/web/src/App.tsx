@@ -15,6 +15,7 @@ type ViewState =
   | Readonly<{ kind: 'error'; errorKind: DemoErrorKind; message: string }>;
 
 type HealthStatus = 'checking' | 'healthy' | 'unavailable';
+type ApiPresentationStatus = HealthStatus | 'pending';
 
 const errorTitles: Readonly<Record<DemoErrorKind, string>> = Object.freeze({
   validation: 'Check the request or demo configuration',
@@ -36,11 +37,27 @@ const scenarioCategories: Record<string, string> = {
   'conflicting-cancellation-request': 'Conflict',
 };
 
-const healthMessages: Record<HealthStatus, string> = {
-  checking: 'Checking\u2026',
+const healthMessages: Record<ApiPresentationStatus, string> = {
+  checking: 'Checking API',
   healthy: 'API healthy',
   unavailable: 'API unavailable',
+  pending: 'API connecting',
 };
+
+const healthTones: Record<ApiPresentationStatus, 'neutral' | 'success' | 'pending' | 'error'> = {
+  checking: 'neutral',
+  healthy: 'success',
+  unavailable: 'error',
+  pending: 'pending',
+};
+
+const validationStages = Object.freeze([
+  'Schema validation',
+  'Route compatibility',
+  'Policy validation',
+]);
+
+const decisionPlaceholderLabels = Object.freeze(['Intent', 'Confidence', 'Review requirement']);
 
 export function App() {
   const [requestText, setRequestText] = useState('');
@@ -77,7 +94,7 @@ export function App() {
 
   const selectedPreset = presetScenarios.find((p) => requestText === p.requestText);
 
-  const apiStatusFromSubmit =
+  const apiStatusFromSubmit: ApiPresentationStatus =
     viewState.kind === 'submitting'
       ? 'pending'
       : viewState.kind === 'success'
@@ -85,6 +102,7 @@ export function App() {
         : viewState.kind === 'error' && viewState.errorKind === 'unavailable'
           ? 'unavailable'
           : healthStatus;
+  const apiStatusTone = healthTones[apiStatusFromSubmit];
 
   const handleRequestTextChange = (value: string): void => {
     setRequestText(value);
@@ -164,20 +182,18 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <header className="header">
-        <div className="header-brand">
-          <span className="header-mark" aria-hidden="true">
-            OG
-          </span>
-          <span className="header-title">OpsGuard AI</span>
-        </div>
+      <header className="header" aria-label="Operational context">
         <div className="header-statuses">
-          <span className={`header-status status-${apiStatusFromSubmit}`} aria-label="API status">
+          <span className={`header-status status-${apiStatusTone}`} aria-label="API status">
             <span className="dot" aria-hidden="true" />
-            <span className="header-status-label">{healthMessages[healthStatus]}</span>
+            <span className="header-status-label">{healthMessages[apiStatusFromSubmit]}</span>
           </span>
           <span className="header-tenant">
             Tenant <strong>synthetic demo</strong>
+          </span>
+          <span className="header-policy">
+            <span className="dot" aria-hidden="true" />
+            Policy controlled
           </span>
         </div>
       </header>
@@ -189,7 +205,7 @@ export function App() {
               <span className="rail-product-mark" aria-hidden="true">
                 OG
               </span>
-              <div>
+              <div className="rail-product-copy">
                 <span className="rail-product-name">OpsGuard AI</span>
                 <span className="rail-product-tagline">Controlled operations</span>
               </div>
@@ -219,6 +235,9 @@ export function App() {
                         {scenarioCategories[preset.id] ?? 'General'}
                       </span>
                     </span>
+                    <span className="rail-selected-indicator" aria-hidden="true">
+                      {isSelected ? '✓' : ''}
+                    </span>
                   </button>
                 );
               })}
@@ -227,7 +246,7 @@ export function App() {
 
           <div className="rail-section rail-status">
             <div className="rail-status-item">
-              <span className={`dot ${apiStatusFromSubmit}`} aria-hidden="true" />
+              <span className={`dot ${apiStatusTone}`} aria-hidden="true" />
               <span>
                 API{' '}
                 {apiStatusFromSubmit === 'healthy'
@@ -289,45 +308,32 @@ export function App() {
           <div className="inspector-content" aria-live="polite">
             {viewState.kind === 'idle' && (
               <div className="decision-pipeline" aria-label="Assessment control flow">
-                <div className="pipeline-node">
-                  <span className="node-icon" aria-hidden="true">
-                    1
-                  </span>
-                  Model proposal
-                </div>
-                <div className="pipeline-arrow" aria-hidden="true" />
-                <div className="pipeline-node">
-                  <span className="node-icon" aria-hidden="true">
-                    2
-                  </span>
-                  Schema validation
-                </div>
-                <div className="pipeline-arrow" aria-hidden="true" />
-                <div className="pipeline-node">
-                  <span className="node-icon" aria-hidden="true">
-                    3
-                  </span>
-                  Route compatibility
-                </div>
-                <div className="pipeline-arrow" aria-hidden="true" />
-                <div className="pipeline-node">
-                  <span className="node-icon" aria-hidden="true">
-                    4
-                  </span>
-                  Controlled outcome
+                <div className="pipeline-endpoint pipeline-endpoint-proposal">
+                  <span className="pipeline-endpoint-label">Model proposal</span>
+                  <span className="pipeline-endpoint-route">Not assessed</span>
+                  <span className="pipeline-endpoint-meta">Model-derived route</span>
                 </div>
 
-                <div
-                  className="decision-placeholder-list"
-                  style={{ width: '100%', marginTop: 'var(--space-4)' }}
-                >
-                  {[
-                    'Intent',
-                    'Confidence',
-                    'Proposed route',
-                    'Effective route',
-                    'Review requirement',
-                  ].map((label) => (
+                <div className="pipeline-validation" aria-label="Deterministic validation">
+                  <span className="pipeline-validation-label">Deterministic validation</span>
+                  <div className="pipeline-validation-stages">
+                    {validationStages.map((stage) => (
+                      <span className="pipeline-validation-stage" key={stage}>
+                        <span aria-hidden="true">✓</span>
+                        {stage}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pipeline-endpoint pipeline-endpoint-outcome">
+                  <span className="pipeline-endpoint-label">Controlled outcome</span>
+                  <span className="pipeline-endpoint-route">Not assessed</span>
+                  <span className="pipeline-endpoint-meta">Effective route and review mode</span>
+                </div>
+
+                <div className="decision-placeholder-list">
+                  {decisionPlaceholderLabels.map((label) => (
                     <div className="decision-placeholder" key={label}>
                       <span className="decision-placeholder-label">{label}</span>
                       <span className="decision-placeholder-value">Not assessed</span>

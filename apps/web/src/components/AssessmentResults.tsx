@@ -14,6 +14,12 @@ const formatLabel = (value: string): string =>
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(' ');
 
+const routeValidationStages = Object.freeze([
+  'Schema validation',
+  'Route compatibility',
+  'Policy validation',
+]);
+
 export function AssessmentResults({ requestText, result }: AssessmentResultsProps) {
   const reviewLabel = result.decision.requiresReview
     ? 'Manual review required'
@@ -30,19 +36,36 @@ export function AssessmentResults({ requestText, result }: AssessmentResultsProp
         </span>
       </div>
 
-      <div className="route-flow">
+      <div
+        className="route-flow"
+        aria-label="Model proposal through deterministic validation to controlled outcome"
+      >
         <div
           className={`route-card proposed ${result.decision.modelRouteOverridden ? 'overridden' : ''}`}
         >
           <div className="route-card-label">Model proposal</div>
           <div className="route-card-value">{result.assessment.proposedRoute}</div>
+          <div className="route-card-meta">Model-derived route</div>
         </div>
-        <div className="route-connector" aria-hidden="true">
-          {'\u2192'}
+
+        <div className="route-validation-bridge">
+          <span className="route-validation-label">Deterministic validation</span>
+          <div className="route-validation-stages">
+            {routeValidationStages.map((stage) => (
+              <span className="route-validation-stage" key={stage}>
+                <span aria-hidden="true">✓</span>
+                {stage}
+              </span>
+            ))}
+          </div>
         </div>
+
         <div className="route-card effective">
           <div className="route-card-label">Controlled outcome</div>
           <div className="route-card-value">{result.decision.effectiveRoute}</div>
+          <div className="route-card-meta">
+            {result.decision.requiresReview ? 'Manual review' : 'Automatic route'}
+          </div>
         </div>
       </div>
 
