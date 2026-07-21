@@ -172,37 +172,17 @@ code {
   z-index: 50;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   height: var(--header-height);
   padding: 0 var(--space-4);
   background: var(--surface-primary);
   border-bottom: 1px solid var(--border-primary);
 }
 
-.header-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.header-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: var(--accent-dark);
-  color: white;
-  border-radius: var(--radius-sm);
-  font-size: 0.5625rem;
-  font-weight: var(--font-bold);
-  letter-spacing: 0.02em;
-}
-
-.header-title {
+.header-context-label {
   font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
 }
 
 .header-statuses {
@@ -231,11 +211,6 @@ code {
   background: var(--success);
 }
 
-.header-status.status-pending .dot {
-  background: var(--warning);
-  animation: pulse 2s ease-in-out infinite;
-}
-
 .header-status.status-error .dot {
   background: var(--error);
 }
@@ -258,27 +233,6 @@ code {
 .header-tenant strong {
   font-weight: var(--font-medium);
   color: var(--text-primary);
-}
-
-.header-policy {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--success-border);
-  border-radius: var(--radius-sm);
-  background: var(--success-bg);
-  color: var(--accent-dark);
-  font-size: var(--text-xs);
-  font-weight: var(--font-medium);
-}
-
-.header-policy .dot {
-  width: 6px;
-  height: 6px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--success);
 }
 
 /* --- Main Layout --- */
@@ -1545,7 +1499,7 @@ code {
     gap: var(--space-2);
   }
 
-  .header-policy {
+  .header-context-label {
     display: none;
   }
 

@@ -6,6 +6,8 @@ import { presetScenarios } from './presets.js';
 
 const requestId = '52c46b7f-ef13-4404-9cf5-c236ba1150a2';
 const correlationId = '81881e5f-c076-4d2d-903d-1438947f196c';
+const defaultRequestText =
+  'A synthetic customer, Sarah Chen, requests a quote for replacing a failed 3-ton HVAC system at 1458 Willow Avenue, Austin, Texas. The home currently has no cooling, but there is no medical or life-safety emergency. Contact: sarah.chen@example.com, +1 512-555-0147. Route the request to sales for follow-up within one business day.';
 
 const jsonResponse = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), {
@@ -80,9 +82,23 @@ describe('OpsGuard AI demo', () => {
     expect(screen.getByText('Route compatibility')).toBeTruthy();
     expect(screen.getByText('Policy validation')).toBeTruthy();
     expect(screen.getByText('Controlled outcome')).toBeTruthy();
+    expect(screen.getByText('Awaiting request')).toBeTruthy();
+    expect(screen.getByText('Awaiting validation')).toBeTruthy();
+    expect(screen.getByText('Model-derived route will appear here.')).toBeTruthy();
+    expect(screen.getByText('Effective route and review mode will appear here.')).toBeTruthy();
+    expect(screen.getAllByText('—')).toHaveLength(3);
     expect(screen.getAllByText('OpsGuard AI')).toHaveLength(1);
     expect(screen.getByText('Controlled operations')).toBeTruthy();
-    expect(screen.getByLabelText('Operational context').textContent).not.toContain('OpsGuard AI');
+    const operationalContext = screen.getByLabelText('Operational context');
+    expect(operationalContext.textContent).toContain('Synthetic assessment workspace');
+    expect(operationalContext.textContent).not.toContain('OpsGuard AI');
+    expect(operationalContext.textContent).not.toContain('Policy controlled');
+    expect(screen.getAllByText('Policy controlled')).toHaveLength(1);
+    const scenarioRail = screen.getByLabelText('Demo scenarios');
+    expect(scenarioRail.textContent).toContain('Safety controls active');
+    expect(scenarioRail.textContent).toContain('External actions disabled');
+    expect(scenarioRail.textContent).not.toContain('API connected');
+    expect(scenarioRail.textContent).not.toContain('Policy controlled');
     expect(screen.getByText('No external action will be executed.')).toBeTruthy();
     expect(
       screen.getByText('OpsGuard validates every model proposal before an operational decision.'),
@@ -112,23 +128,28 @@ describe('OpsGuard AI demo', () => {
     }
   });
 
-  it('enables Analyze only when request text is present and resets the intake', () => {
+  it('preselects the clear-service request and restores it on reset', () => {
     render(<App />);
 
-    const textarea = screen.getByLabelText('Request text');
+    const textarea = screen.getByLabelText('Request text') as HTMLTextAreaElement;
     const analyze = screen.getByRole('button', { name: 'Analyze request' }) as HTMLButtonElement;
     const reset = screen.getByRole('button', { name: 'Reset' }) as HTMLButtonElement;
+    const clearService = screen.getByRole('button', { name: /Clear service request/i });
 
-    expect(analyze.disabled).toBe(true);
-    expect(reset.disabled).toBe(true);
-
-    fireEvent.change(textarea, { target: { value: 'Synthetic operational request' } });
+    expect(presetScenarios[0].requestText).toBe(defaultRequestText);
+    expect(textarea.value).toBe(defaultRequestText);
+    expect(clearService.getAttribute('aria-pressed')).toBe('true');
     expect(analyze.disabled).toBe(false);
     expect(reset.disabled).toBe(false);
 
+    fireEvent.click(screen.getByRole('button', { name: /Conflicting cancellation request/i }));
+    expect(textarea.value).toBe(presetScenarios[2].requestText);
+    expect(clearService.getAttribute('aria-pressed')).toBe('false');
+
     fireEvent.click(reset);
-    expect((textarea as HTMLTextAreaElement).value).toBe('');
-    expect(analyze.disabled).toBe(true);
+    expect(textarea.value).toBe(defaultRequestText);
+    expect(clearService.getAttribute('aria-pressed')).toBe('true');
+    expect(analyze.disabled).toBe(false);
   });
 
   it('creates a request before assessing it and renders the validated result', async () => {

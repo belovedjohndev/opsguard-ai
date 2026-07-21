@@ -7,6 +7,7 @@ import { RequestComposer } from './components/RequestComposer.js';
 import { presetScenarios } from './presets.js';
 
 const maximumRequestTextLength = 20_000;
+const defaultPreset = presetScenarios[0];
 
 type ViewState =
   | Readonly<{ kind: 'idle' }>
@@ -15,7 +16,6 @@ type ViewState =
   | Readonly<{ kind: 'error'; errorKind: DemoErrorKind; message: string }>;
 
 type HealthStatus = 'checking' | 'healthy' | 'unavailable';
-type ApiPresentationStatus = HealthStatus | 'pending';
 
 const errorTitles: Readonly<Record<DemoErrorKind, string>> = Object.freeze({
   validation: 'Check the request or demo configuration',
@@ -37,18 +37,16 @@ const scenarioCategories: Record<string, string> = {
   'conflicting-cancellation-request': 'Conflict',
 };
 
-const healthMessages: Record<ApiPresentationStatus, string> = {
+const healthMessages: Record<HealthStatus, string> = {
   checking: 'Checking API',
   healthy: 'API healthy',
   unavailable: 'API unavailable',
-  pending: 'API connecting',
 };
 
-const healthTones: Record<ApiPresentationStatus, 'neutral' | 'success' | 'pending' | 'error'> = {
+const healthTones: Record<HealthStatus, 'neutral' | 'success' | 'error'> = {
   checking: 'neutral',
   healthy: 'success',
   unavailable: 'error',
-  pending: 'pending',
 };
 
 const validationStages = Object.freeze([
@@ -60,7 +58,7 @@ const validationStages = Object.freeze([
 const decisionPlaceholderLabels = Object.freeze(['Intent', 'Confidence', 'Review requirement']);
 
 export function App() {
-  const [requestText, setRequestText] = useState('');
+  const [requestText, setRequestText] = useState<string>(defaultPreset.requestText);
   const [viewState, setViewState] = useState<ViewState>({ kind: 'idle' });
   const [healthStatus, setHealthStatus] = useState<HealthStatus>('checking');
 
@@ -94,15 +92,7 @@ export function App() {
 
   const selectedPreset = presetScenarios.find((p) => requestText === p.requestText);
 
-  const apiStatusFromSubmit: ApiPresentationStatus =
-    viewState.kind === 'submitting'
-      ? 'pending'
-      : viewState.kind === 'success'
-        ? 'healthy'
-        : viewState.kind === 'error' && viewState.errorKind === 'unavailable'
-          ? 'unavailable'
-          : healthStatus;
-  const apiStatusTone = healthTones[apiStatusFromSubmit];
+  const apiStatusTone = healthTones[healthStatus];
 
   const handleRequestTextChange = (value: string): void => {
     setRequestText(value);
@@ -110,7 +100,7 @@ export function App() {
   };
 
   const handleReset = (): void => {
-    setRequestText('');
+    setRequestText(defaultPreset.requestText);
     setViewState({ kind: 'idle' });
   };
 
@@ -183,17 +173,14 @@ export function App() {
   return (
     <div className="app-shell">
       <header className="header" aria-label="Operational context">
+        <span className="header-context-label">Synthetic assessment workspace</span>
         <div className="header-statuses">
           <span className={`header-status status-${apiStatusTone}`} aria-label="API status">
             <span className="dot" aria-hidden="true" />
-            <span className="header-status-label">{healthMessages[apiStatusFromSubmit]}</span>
+            <span className="header-status-label">{healthMessages[healthStatus]}</span>
           </span>
           <span className="header-tenant">
-            Tenant <strong>synthetic demo</strong>
-          </span>
-          <span className="header-policy">
-            <span className="dot" aria-hidden="true" />
-            Policy controlled
+            Tenant: <strong>synthetic demo</strong>
           </span>
         </div>
       </header>
@@ -246,25 +233,12 @@ export function App() {
 
           <div className="rail-section rail-status">
             <div className="rail-status-item">
-              <span className={`dot ${apiStatusTone}`} aria-hidden="true" />
-              <span>
-                API{' '}
-                {apiStatusFromSubmit === 'healthy'
-                  ? 'connected'
-                  : apiStatusFromSubmit === 'pending'
-                    ? 'connecting'
-                    : apiStatusFromSubmit === 'unavailable'
-                      ? 'unavailable'
-                      : 'checked'}
-              </span>
-            </div>
-            <div className="rail-status-item">
               <span className="dot success" aria-hidden="true" />
               <span>Safety controls active</span>
             </div>
             <div className="rail-status-item">
               <span className="dot success" aria-hidden="true" />
-              <span>Policy controlled</span>
+              <span>External actions disabled</span>
             </div>
           </div>
         </aside>
@@ -310,8 +284,10 @@ export function App() {
               <div className="decision-pipeline" aria-label="Assessment control flow">
                 <div className="pipeline-endpoint pipeline-endpoint-proposal">
                   <span className="pipeline-endpoint-label">Model proposal</span>
-                  <span className="pipeline-endpoint-route">Not assessed</span>
-                  <span className="pipeline-endpoint-meta">Model-derived route</span>
+                  <span className="pipeline-endpoint-route">Awaiting request</span>
+                  <span className="pipeline-endpoint-meta">
+                    Model-derived route will appear here.
+                  </span>
                 </div>
 
                 <div className="pipeline-validation" aria-label="Deterministic validation">
@@ -328,15 +304,17 @@ export function App() {
 
                 <div className="pipeline-endpoint pipeline-endpoint-outcome">
                   <span className="pipeline-endpoint-label">Controlled outcome</span>
-                  <span className="pipeline-endpoint-route">Not assessed</span>
-                  <span className="pipeline-endpoint-meta">Effective route and review mode</span>
+                  <span className="pipeline-endpoint-route">Awaiting validation</span>
+                  <span className="pipeline-endpoint-meta">
+                    Effective route and review mode will appear here.
+                  </span>
                 </div>
 
                 <div className="decision-placeholder-list">
                   {decisionPlaceholderLabels.map((label) => (
                     <div className="decision-placeholder" key={label}>
                       <span className="decision-placeholder-label">{label}</span>
-                      <span className="decision-placeholder-value">Not assessed</span>
+                      <span className="decision-placeholder-value">—</span>
                     </div>
                   ))}
                 </div>
