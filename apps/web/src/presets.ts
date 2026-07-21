@@ -4,7 +4,7 @@ export const presetScenarios = Object.freeze([
     label: 'Clear service request',
     description: 'High-confidence sales intake with complete contact and location details.',
     requestText:
-      'Maria Santos at maria.santos@example.test needs a new split-system air conditioner installed at 42 Pine Street, Cebu City next Tuesday.',
+      'A synthetic customer, Sarah Chen, requests a quote for replacing a failed 3-ton HVAC system at 1458 Willow Avenue, Austin, Texas. The home currently has no cooling, but there is no medical or life-safety emergency. Contact: sarah.chen@example.com, +1 512-555-0147. Route the request to sales for follow-up within one business day.',
   }),
   Object.freeze({
     id: 'prompt-injection-support-request',
