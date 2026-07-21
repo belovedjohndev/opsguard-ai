@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App.js';
@@ -63,6 +63,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -105,14 +106,67 @@ describe('OpsGuard AI demo', () => {
     ).toBeTruthy();
   });
 
-  it.each([
-    [200, 'API healthy'],
-    [503, 'API unavailable'],
-  ])('renders the API health state for status %s', async (status, label) => {
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, status)));
+  it('marks the API healthy after the initial health attempt succeeds', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 200));
+    vi.stubGlobal('fetch', fetchMock);
     render(<App />);
 
-    expect((await screen.findAllByText(label)).length).toBeGreaterThan(0);
+    expect(await screen.findByText('API healthy')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:3000/health');
+  });
+
+  it('keeps checking until a retry succeeds', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new TypeError('network unavailable'))
+      .mockResolvedValueOnce(jsonResponse({}, 200));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    expect(screen.getByText('Checking API')).toBeTruthy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Checking API')).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_499);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('API healthy')).toBeTruthy();
+  });
+
+  it('marks the API unavailable only after all health attempts fail', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 503));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Checking API')).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_500);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Checking API')).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_500);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(screen.getByText('API unavailable')).toBeTruthy();
   });
 
   it('selects each preset with explicit styling and state text', () => {
@@ -182,6 +236,49 @@ describe('OpsGuard AI demo', () => {
     expect(screen.getAllByText('manual_review').length).toBeGreaterThan(0);
     expect(screen.getByText('No external action was executed.')).toBeTruthy();
     expect(screen.getByText('The assessment remains pending review.')).toBeTruthy();
+  });
+
+  it('restores stale unavailable health after a successful assessment', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({}, 503))
+      .mockResolvedValueOnce(jsonResponse({}, 503))
+      .mockResolvedValueOnce(jsonResponse({}, 503))
+      .mockResolvedValueOnce(jsonResponse({ requestId }, 201))
+      .mockResolvedValueOnce(jsonResponse(assessmentResponse));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(1_500);
+      await vi.advanceTimersByTimeAsync(1_500);
+    });
+    expect(screen.getByText('API unavailable')).toBeTruthy();
+
+    vi.useRealTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze request' }));
+
+    await screen.findByRole('heading', { name: 'Decision' });
+    expect(screen.getByText('API healthy')).toBeTruthy();
+  });
+
+  it('marks the API unavailable after an unavailable assessment failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse({}, 200))
+        .mockResolvedValueOnce(jsonResponse({}, 503)),
+    );
+    render(<App />);
+
+    expect(await screen.findByText('API healthy')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze request' }));
+
+    expect(await screen.findByRole('heading', { name: 'OpsGuard API unavailable' })).toBeTruthy();
+    expect(screen.getByText('API unavailable')).toBeTruthy();
   });
 
   it('shows the deterministic route override message', async () => {
@@ -262,6 +359,8 @@ describe('OpsGuard AI demo', () => {
       await screen.findByRole('heading', { name: 'Model assessment stopped safely' }),
     ).toBeTruthy();
     expect(document.body.textContent).not.toContain(providerSecret);
+    expect(screen.getByText('API healthy')).toBeTruthy();
+    expect(screen.queryByText('API unavailable')).toBeNull();
     expect(document.body.textContent).toContain('No external action was executed.');
     expect(document.body.textContent).toContain(
       'The request failed before an operational decision could be made.',

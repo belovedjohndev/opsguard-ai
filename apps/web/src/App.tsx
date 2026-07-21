@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { createAndAssessRequest, DemoApiError, readDemoConfiguration } from './api.js';
 import type { AssessmentResponse, DemoConfiguration, DemoErrorKind } from './api.js';
@@ -8,6 +8,8 @@ import { presetScenarios } from './presets.js';
 
 const maximumRequestTextLength = 20_000;
 const defaultPreset = presetScenarios[0];
+const healthRequestTimeoutMs = 5_000;
+const healthAttemptOffsetsMs = Object.freeze([0, 1_500, 3_000]);
 
 type ViewState =
   | Readonly<{ kind: 'idle' }>
@@ -61,32 +63,63 @@ export function App() {
   const [requestText, setRequestText] = useState<string>(defaultPreset.requestText);
   const [viewState, setViewState] = useState<ViewState>({ kind: 'idle' });
   const [healthStatus, setHealthStatus] = useState<HealthStatus>('checking');
+  const apiReachabilityConfirmedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const waitForRetry = (delayMs: number): Promise<void> =>
+      new Promise((resolve) => {
+        retryTimer = setTimeout(() => {
+          retryTimer = undefined;
+          resolve();
+        }, delayMs);
+      });
+
     const checkHealth = async () => {
+      let configuration: DemoConfiguration;
       try {
-        let configuration: DemoConfiguration;
-        try {
-          configuration = readDemoConfiguration();
-        } catch {
-          if (!cancelled) setHealthStatus('unavailable');
-          return;
-        }
-        const response = await fetch(`${configuration.apiBaseUrl}/health`, {
-          method: 'GET',
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!cancelled) {
-          setHealthStatus(response.ok ? 'healthy' : 'unavailable');
-        }
+        configuration = readDemoConfiguration();
       } catch {
         if (!cancelled) setHealthStatus('unavailable');
+        return;
+      }
+
+      for (const [attemptIndex, attemptOffsetMs] of healthAttemptOffsetsMs.entries()) {
+        if (attemptIndex > 0) {
+          const previousAttemptOffsetMs = healthAttemptOffsetsMs[attemptIndex - 1] ?? 0;
+          await waitForRetry(attemptOffsetMs - previousAttemptOffsetMs);
+        }
+
+        if (cancelled || apiReachabilityConfirmedRef.current) return;
+
+        try {
+          const response = await fetch(`${configuration.apiBaseUrl}/health`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(healthRequestTimeoutMs),
+          });
+          if (response.ok) {
+            if (!cancelled) {
+              apiReachabilityConfirmedRef.current = true;
+              setHealthStatus('healthy');
+            }
+            return;
+          }
+        } catch {
+          // Retry bounded health failures without exposing infrastructure details.
+        }
+      }
+
+      if (!cancelled && !apiReachabilityConfirmedRef.current) {
+        setHealthStatus('unavailable');
       }
     };
+
     void checkHealth();
     return () => {
       cancelled = true;
+      if (retryTimer !== undefined) clearTimeout(retryTimer);
     };
   }, []);
 
@@ -133,6 +166,8 @@ export function App() {
     void createAndAssessRequest(requestText, configuration)
       .then((result) => {
         setViewState({ kind: 'success', result, submittedText: requestText });
+        apiReachabilityConfirmedRef.current = true;
+        setHealthStatus('healthy');
       })
       .catch((error: unknown) => {
         const apiError =
@@ -140,6 +175,10 @@ export function App() {
             ? error
             : new DemoApiError('unexpected', 'The assessment could not be completed safely.');
         setViewState({ kind: 'error', errorKind: apiError.kind, message: apiError.message });
+        if (apiError.kind === 'unavailable') {
+          apiReachabilityConfirmedRef.current = false;
+          setHealthStatus('unavailable');
+        }
       });
   };
 
