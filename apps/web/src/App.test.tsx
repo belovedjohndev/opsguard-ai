@@ -78,7 +78,25 @@ describe('OpsGuard AI demo', () => {
     expect(screen.getByText('Model proposal')).toBeTruthy();
     expect(screen.getByText('Schema validation')).toBeTruthy();
     expect(screen.getByText('Route compatibility')).toBeTruthy();
+    expect(screen.getByText('Policy validation')).toBeTruthy();
     expect(screen.getByText('Controlled outcome')).toBeTruthy();
+    expect(screen.getAllByText('OpsGuard AI')).toHaveLength(1);
+    expect(screen.getByText('Controlled operations')).toBeTruthy();
+    expect(screen.getByLabelText('Operational context').textContent).not.toContain('OpsGuard AI');
+    expect(screen.getByText('No external action will be executed.')).toBeTruthy();
+    expect(
+      screen.getByText('OpsGuard validates every model proposal before an operational decision.'),
+    ).toBeTruthy();
+  });
+
+  it.each([
+    [200, 'API healthy'],
+    [503, 'API unavailable'],
+  ])('renders the API health state for status %s', async (status, label) => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, status)));
+    render(<App />);
+
+    expect((await screen.findAllByText(label)).length).toBeGreaterThan(0);
   });
 
   it('selects each preset with explicit styling and state text', () => {
@@ -139,7 +157,10 @@ describe('OpsGuard AI demo', () => {
     expect(screen.getByText('Support Request')).toBeTruthy();
     expect(screen.getByText('noc@example.test')).toBeTruthy();
     expect(screen.getByText(requestId)).toBeTruthy();
+    expect(screen.getAllByText('sales').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('manual_review').length).toBeGreaterThan(0);
     expect(screen.getByText('No external action was executed.')).toBeTruthy();
+    expect(screen.getByText('The assessment remains pending review.')).toBeTruthy();
   });
 
   it('shows the deterministic route override message', async () => {
@@ -185,6 +206,10 @@ describe('OpsGuard AI demo', () => {
     });
     expect(screen.getByRole('heading', { name: 'Validating the model proposal' })).toBeTruthy();
     expect(textarea.value).toBe(submittedText);
+    expect(screen.getByText('No external action is being executed.')).toBeTruthy();
+    expect(
+      screen.getByText('The proposal is being validated against deterministic policy.'),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Analyzing request/i }));
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -217,5 +242,8 @@ describe('OpsGuard AI demo', () => {
     ).toBeTruthy();
     expect(document.body.textContent).not.toContain(providerSecret);
     expect(document.body.textContent).toContain('No external action was executed.');
+    expect(document.body.textContent).toContain(
+      'The request failed before an operational decision could be made.',
+    );
   });
 });
